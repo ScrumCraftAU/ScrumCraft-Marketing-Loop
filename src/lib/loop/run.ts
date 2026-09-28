@@ -3,6 +3,8 @@ import { addDays, format, parseISO, subMinutes } from "date-fns";
 import { db } from "@/lib/supabase/server";
 import { isAnthropicConfigured } from "@/lib/env";
 import { computeStats } from "@/lib/metrics/stats";
+import { computeSiteStats } from "@/lib/metrics/sites";
+import { loadStrategyDocs } from "@/lib/strategy/confluence";
 import { analyse, toModelInput } from "@/lib/loop/analyse";
 import type { Experiment } from "@/lib/types";
 
@@ -57,7 +59,8 @@ export async function runLoop({ trigger, triggeredBy }: RunOptions) {
     if (expErr) throw expErr;
     const experiments = (open ?? []) as Experiment[];
 
-    const input = toModelInput(stats, experiments);
+    const [sites, docs] = await Promise.all([computeSiteStats(), loadStrategyDocs()]);
+    const input = toModelInput(stats, experiments, sites);
 
     if (!isAnthropicConfigured()) {
       await supabase
@@ -72,7 +75,7 @@ export async function runLoop({ trigger, triggeredBy }: RunOptions) {
       return { ok: true as const, runId };
     }
 
-    const { analysis, model, usage } = await analyse(input);
+    const { analysis, model, usage } = await analyse(input, docs);
 
     const metricKeys = new Set(stats.metrics.map((s) => s.metric.key));
     const experimentIds = new Set(experiments.map((e) => e.id));
@@ -130,7 +133,7 @@ export async function runLoop({ trigger, triggeredBy }: RunOptions) {
         summary: analysis.summary,
         model,
         usage,
-        input_snapshot: input,
+        input_snapshot: { ...input, strategy_docs: docs.filter((d) => d.content).map((d) => ({ title: d.title, version: d.version })) },
       })
       .eq("id", runId);
 

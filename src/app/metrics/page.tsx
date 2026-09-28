@@ -5,6 +5,8 @@ import { NotConfigured } from "@/components/not-configured";
 import { isSupabaseConfigured } from "@/lib/env";
 import { db } from "@/lib/supabase/server";
 import type { Metric, Source } from "@/lib/types";
+import type { StrategyDoc } from "@/lib/strategy/confluence";
+import { RefreshDocsButton } from "@/components/refresh-docs-button";
 
 export const dynamic = "force-dynamic";
 
@@ -17,9 +19,10 @@ export default async function MetricsPage() {
   );
   if (!isSupabaseConfigured()) return <div className="space-y-6">{header}<NotConfigured /></div>;
 
-  const [{ data: sources }, { data: metrics }] = await Promise.all([
+  const [{ data: sources }, { data: metrics }, { data: docs }] = await Promise.all([
     db().from("sources").select("*").order("id"),
     db().from("metrics").select("*").order("sort_order"),
+    db().from("strategy_docs").select("*").order("sort_order"),
   ]);
 
   return (
@@ -42,6 +45,28 @@ export default async function MetricsPage() {
             </div>
           ))}
         </div>
+      </section>
+
+      <section className="space-y-2">
+        <div className="flex items-end justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold">Strategy docs</h2>
+            <p className="text-sm text-muted-foreground">Confluence pages the loop reads so its advice follows our strategy and brand voice.</p>
+          </div>
+          <RefreshDocsButton />
+        </div>
+        <ul className="divide-y rounded-lg border text-sm">
+          {((docs ?? []) as StrategyDoc[]).map((d) => (
+            <li key={d.page_id} className="flex flex-wrap items-center justify-between gap-2 p-3">
+              <a href={d.url} target="_blank" rel="noreferrer" className="font-medium hover:underline">{d.title}</a>
+              <span className="text-muted-foreground">
+                {d.fetched_at
+                  ? `v${d.version} · ${Math.round((d.content?.length ?? 0) / 1000)}k chars · fetched ${formatDistanceToNow(parseISO(d.fetched_at), { addSuffix: true })}`
+                  : "not fetched yet"}
+              </span>
+            </li>
+          ))}
+        </ul>
       </section>
 
       <section className="space-y-2">

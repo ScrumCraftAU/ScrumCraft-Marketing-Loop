@@ -41,6 +41,7 @@ loop_runs ──< loop_findings ──> experiments
 | `loop_runs` | Each PDCA run: trigger, status, data window, summary, model, token usage, input snapshot |
 | `loop_findings` | Check/Act output: anomaly, trend, target gap, win, risk, experiment result, recommendation (severity info/watch/alert) |
 | `experiments` | The PDCA board: hypothesis, action, target metric, baseline, expected change, check date, status, result |
+| `strategy_docs` | Confluence pages (marketing strategy, SCA product marketing strategies, brand guide) the loop reads as context. Refreshed from the Metrics & sources page. |
 
 Derived metrics (`paid.spend`, `paid.cost_per_booking`, `paid.roas`, …) are **not stored**. They're computed per window as a ratio of sums, which avoids averaging daily ratios.
 
@@ -65,7 +66,8 @@ Derived metrics (`paid.spend`, `paid.cost_per_booking`, `paid.roas`, …) are **
 | Engagement | LinkedIn clicks / Meta clicks | `linkedin_ads.clicks`, `meta_ads.clicks` | Ads |
 | Engagement | Email click rate | `hubspot.email_click_rate` | HubSpot |
 | Engagement | Paid CTR (blended) | `paid.ctr` | derived |
-| Conversion | GA4 key events | `ga4.key_events` | GA4 |
+| Conversion | Form submissions | `ga4.form_submits` | GA4 |
+| Conversion | Checkout page views | `ga4.checkout_views` | GA4 |
 | Conversion | New contacts | `hubspot.new_contacts` | HubSpot |
 | Conversion | MQLs | `hubspot.mqls` | HubSpot |
 | Conversion | LinkedIn lead-gen leads | `linkedin_ads.leads` | LinkedIn Ads |
@@ -87,6 +89,10 @@ Derived metrics (`paid.spend`, `paid.cost_per_booking`, `paid.roas`, …) are **
 | Revenue | ROAS | `paid.roas` | derived |
 
 ## Ingesting data (Zapier and other push sources)
+
+**GA4** is one daily Zap that forwards raw GA4 reports for 7 properties. Setup: [docs/ga4-zap.md](docs/ga4-zap.md).
+The main site (www.scrumcraft.com) feeds the dashboard totals, and the other properties are stored under
+`site:<name>` dimensions and shown in the Web properties table. Other sources use the generic format below.
 
 ```
 POST /api/ingest/<source>            # source = ga4 | linkedin_ads | meta_ads | hubspot | ticket_tailor | seo

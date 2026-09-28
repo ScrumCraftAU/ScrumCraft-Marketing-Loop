@@ -3,8 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/supabase/server";
-import { isSupabaseConfigured } from "@/lib/env";
+import { isConfluenceConfigured, isSupabaseConfigured } from "@/lib/env";
 import { runLoop } from "@/lib/loop/run";
+import { refreshStrategyDocs } from "@/lib/strategy/confluence";
 import type { ExperimentStatus } from "@/lib/types";
 
 export async function runLoopNow() {
@@ -12,6 +13,20 @@ export async function runLoopNow() {
   const result = await runLoop({ trigger: "manual", triggeredBy: "dashboard" });
   revalidatePath("/", "layout");
   return result;
+}
+
+export async function refreshStrategyDocsNow() {
+  if (!isSupabaseConfigured()) return { ok: false as const, error: "Supabase is not configured yet" };
+  if (!isConfluenceConfigured()) {
+    return { ok: false as const, error: "Add CONFLUENCE_EMAIL and CONFLUENCE_API_TOKEN to the Vercel project first" };
+  }
+  try {
+    const result = await refreshStrategyDocs();
+    revalidatePath("/metrics");
+    return { ok: true as const, ...result };
+  } catch (err) {
+    return { ok: false as const, error: err instanceof Error ? err.message : String(err) };
+  }
 }
 
 const Status = z.enum(["proposed", "approved", "running", "checking", "adopted", "adapted", "abandoned", "rejected"]);

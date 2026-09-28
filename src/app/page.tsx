@@ -7,6 +7,8 @@ import { NotConfigured } from "@/components/not-configured";
 import { RunLoopButton } from "@/components/run-loop-button";
 import { isSupabaseConfigured } from "@/lib/env";
 import { computeStats } from "@/lib/metrics/stats";
+import { computeSiteStats } from "@/lib/metrics/sites";
+import { SiteTable } from "@/components/site-table";
 import { db } from "@/lib/supabase/server";
 import type { FunnelStage, LoopFinding, LoopRun } from "@/lib/types";
 
@@ -30,8 +32,9 @@ export default async function DashboardPage() {
     );
   }
 
-  const [stats, { data: runs }] = await Promise.all([
+  const [stats, sites, { data: runs }] = await Promise.all([
     computeStats(),
+    computeSiteStats(),
     db().from("loop_runs").select("*").order("started_at", { ascending: false }).limit(1),
   ]);
   const lastRun = (runs?.[0] ?? null) as LoopRun | null;
@@ -85,6 +88,16 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {sites.length > 0 && (
+        <section className="space-y-2">
+          <div>
+            <h2 className="text-lg font-semibold">Web properties</h2>
+            <p className="text-sm text-muted-foreground">This week per GA4 property, with change vs the 4-week average.</p>
+          </div>
+          <SiteTable sites={sites} />
+        </section>
+      )}
 
       {(["leading", "lagging"] as const).map((indicator) => (
         <section key={indicator} className="space-y-4">
