@@ -55,6 +55,9 @@ class IngestError extends Error {
  * (https://zapier.com/engine/hydrate/…). Download the report from that link.
  */
 async function fetchHydratedReport(payload: unknown, rawEventId: string): Promise<unknown> {
+  if (payload === "" || payload === null) {
+    throw new IngestError("request body was empty — step 4's Data chip resolved to nothing; map step 3's Response Body");
+  }
   const link = findZapierFileLink(payload);
   if (!link) {
     throw new IngestError("no GA4 reports found in payload — map step 3's Full Response Data (or Raw Output) into the webhook Data");

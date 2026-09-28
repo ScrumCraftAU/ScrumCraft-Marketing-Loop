@@ -50,7 +50,7 @@ To add or remove a property, update `sources.config` for `ga4` in Supabase **and
 ### 4. Webhooks by Zapier: Custom Request
 - Method: **POST**
 - URL: `https://scrumcraft-marketing-loop.vercel.app/api/ingest/ga4?property={{2. property_id}}`
-- Data: insert step 3's **Raw Output** variable (the whole response as one value). Nothing else.
+- Data: insert step 3's **Response Body** chip (under `response`). Nothing else. Note: editor test samples may show only "Full Response Data" (a file link) — the app accepts either, but live runs deliver **Response Body**.
 - Headers:
   | Key | Value |
   |---|---|

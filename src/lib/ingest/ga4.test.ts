@@ -13,7 +13,13 @@ test("finds reports in every wrapper Zapier might send", () => {
   assert.equal(extractReports(fixture.body)?.length, 4);
   assert.equal(extractReports({ results: [fixture] })?.length, 4);
   assert.equal(extractReports(JSON.stringify(fixture))?.length, 4);
+  // Live Zap runs: step 3's "Response Body" (a JSON string), alone or inside a Raw Output object
+  const body = JSON.stringify(fixture.body, null, 2);
+  assert.equal(extractReports(body)?.length, 4);
+  assert.equal(extractReports({ request: { method: "POST" }, response: { status: 200, body } })?.length, 4);
+  assert.equal(extractReports({ "Response Body": body })?.length, 4);
   assert.equal(extractReports({ nope: true }), null);
+  assert.equal(extractReports(""), null);
 });
 
 test("main site totals, channels, pages and events", () => {

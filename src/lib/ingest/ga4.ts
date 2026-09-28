@@ -62,13 +62,11 @@ export function extractReports(payload: unknown): Report[] | null {
     const obj = node as Record<string, unknown>;
     if (Array.isArray(obj.reports)) return obj.reports as Report[];
     if (Array.isArray(obj.dimensionHeaders) || Array.isArray(obj.metricHeaders)) return [obj as Report];
-    for (const key of ["body", "results", "data", "response"]) {
-      const child = obj[key];
-      const list = Array.isArray(child) ? child : [child];
-      for (const c of list) {
-        const found = visit(typeof c === "string" ? tryParse(c) : c);
-        if (found) return found;
-      }
+    // Search every value: Zapier may nest the response (response.body, "Response Body",
+    // a whole-step Raw Output…) and often sends it as a JSON string.
+    for (const child of Object.values(obj)) {
+      const found = visit(typeof child === "string" ? tryParse(child) : child);
+      if (found) return found;
     }
     return null;
   };
@@ -101,6 +99,8 @@ export function findZapierFileLink(payload: unknown): string | null {
 }
 
 function tryParse(s: string): unknown {
+  const t = s.trimStart();
+  if (!t.startsWith("{") && !t.startsWith("[")) return null;
   try {
     return JSON.parse(s);
   } catch {
