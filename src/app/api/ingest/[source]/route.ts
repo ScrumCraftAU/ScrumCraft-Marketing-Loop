@@ -121,7 +121,9 @@ export async function POST(req: Request, ctx: RouteContext<"/api/ingest/[source]
   const { source } = await ctx.params;
   const supabase = db();
 
-  const { data: src } = await supabase.from("sources").select("id, config").eq("id", source).maybeSingle();
+  // A failed lookup is a (retryable) database problem, not an unknown source.
+  const { data: src, error: srcErr } = await supabase.from("sources").select("id, config").eq("id", source).maybeSingle();
+  if (srcErr) return NextResponse.json({ error: `database unavailable: ${srcErr.message}` }, { status: 503 });
   if (!src) return NextResponse.json({ error: `unknown source '${source}'` }, { status: 404 });
 
   // Keep non-JSON bodies too (stored as a string) so a misconfigured Zap is debuggable.
