@@ -75,6 +75,22 @@ export function extractReports(payload: unknown): Report[] | null {
   return visit(typeof payload === "string" ? tryParse(payload) : payload);
 }
 
+const ZAPIER_FILE_LINK = /https:\/\/(?:[a-z0-9-]+\.)?zapier\.com\/engine\/hydrate\/[^\s"'<>]+/i;
+
+/**
+ * Finds a Zapier "Full Response Data" file link anywhere in the payload. Only links on
+ * zapier.com's hydrate path are returned, so the app never fetches arbitrary URLs.
+ */
+export function findZapierFileLink(payload: unknown): string | null {
+  if (typeof payload === "string") return payload.match(ZAPIER_FILE_LINK)?.[0] ?? null;
+  if (!payload || typeof payload !== "object") return null;
+  for (const value of Object.values(payload as Record<string, unknown>)) {
+    const found = findZapierFileLink(value);
+    if (found) return found;
+  }
+  return null;
+}
+
 function tryParse(s: string): unknown {
   try {
     return JSON.parse(s);

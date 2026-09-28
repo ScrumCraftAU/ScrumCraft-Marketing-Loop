@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/supabase/server";
 import { env, isSupabaseConfigured } from "@/lib/env";
-import { extractReports, parseGa4, type Observation } from "@/lib/ingest/ga4";
+import { extractReports, findZapierFileLink, parseGa4, type Observation } from "@/lib/ingest/ga4";
 
 export const maxDuration = 60;
 
@@ -50,6 +50,25 @@ class IngestError extends Error {
   }
 }
 
+/**
+ * Zapier swaps large API responses for a "Full Response Data" file link
+ * (https://zapier.com/engine/hydrate/…). Download the report from that link.
+ */
+async function fetchHydratedReport(payload: unknown): Promise<unknown> {
+  const link = findZapierFileLink(payload);
+  if (!link) {
+    throw new IngestError("no GA4 reports found in payload — map step 3's Full Response Data (or Raw Output) into the webhook Data");
+  }
+  const res = await fetch(link, { cache: "no-store", signal: AbortSignal.timeout(20_000) });
+  if (!res.ok) throw new IngestError(`could not download Zapier response file (${res.status})`, 502);
+  const body = await res.text();
+  try {
+    return JSON.parse(body);
+  } catch {
+    throw new IngestError("Zapier response file was not JSON", 502);
+  }
+}
+
 function parseGeneric(payload: unknown, source: string, keys: Set<string>) {
   const parsed = z.array(Row).safeParse(Array.isArray(payload) ? payload : [payload]);
   if (!parsed.success) throw new IngestError("invalid payload", 400, { issues: parsed.error.issues });
@@ -83,12 +102,13 @@ export async function POST(req: Request, ctx: RouteContext<"/api/ingest/[source]
   const { data: src } = await supabase.from("sources").select("id, config").eq("id", source).maybeSingle();
   if (!src) return NextResponse.json({ error: `unknown source '${source}'` }, { status: 404 });
 
+  // Keep non-JSON bodies too (stored as a string) so a misconfigured Zap is debuggable.
   const text = await req.text();
   let payload: unknown;
   try {
     payload = JSON.parse(text);
   } catch {
-    return NextResponse.json({ error: "invalid JSON" }, { status: 400 });
+    payload = text;
   }
 
   const { data: raw, error: rawErr } = await supabase
@@ -103,12 +123,14 @@ export async function POST(req: Request, ctx: RouteContext<"/api/ingest/[source]
     const keys = new Set((known ?? []).map((m) => m.key as string));
 
     let result: { observations: Observation[]; warnings: string[] };
-    if (source === "ga4" && extractReports(payload)) {
-      const propertyId = new URL(req.url).searchParams.get("property") ?? "";
+    const propertyId = new URL(req.url).searchParams.get("property");
+    if (source === "ga4" && propertyId !== null) {
       const properties = (src.config?.properties ?? {}) as Record<string, Ga4Property>;
       const property = properties[propertyId];
       if (!property) throw new IngestError(`unknown GA4 property '${propertyId}' — add it to sources.config`);
-      result = parseGa4(payload, property.site);
+      const report = extractReports(payload) ? payload : await fetchHydratedReport(payload);
+      result = parseGa4(report, property.site);
+      if (!result.observations.length && result.warnings.length) throw new IngestError(result.warnings.join("; "));
       result.observations = result.observations.filter((o) => keys.has(o.metric_key));
     } else {
       result = parseGeneric(payload, source, keys);

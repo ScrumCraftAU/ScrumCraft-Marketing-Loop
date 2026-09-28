@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { COURSE_PAGE, CHECKOUT_PAGE, extractReports, parseGa4 } from "./ga4.ts";
+import { COURSE_PAGE, CHECKOUT_PAGE, extractReports, findZapierFileLink, parseGa4 } from "./ga4.ts";
 
 // Real batchRunReports output for www.scrumcraft.com (25–26 Sep 2026), as Zapier returns it.
 const fixture = JSON.parse(readFileSync(new URL("./fixtures/ga4-batch.json", import.meta.url), "utf8"));
@@ -48,4 +48,13 @@ test("page classification", () => {
     assert.ok(!COURSE_PAGE.test(p), p);
   }
   assert.ok(CHECKOUT_PAGE.test("/checkout/view-event/id/5083947/chk/2207/"));
+});
+
+test("finds Zapier's Full Response Data link, and nothing else", () => {
+  const link = "https://zapier.com/engine/hydrate/20279949/.eJw9jsFug:1xB6YF:vmoQxx4v22fI7/";
+  assert.equal(findZapierFileLink(link), link);
+  assert.equal(findZapierFileLink({ full_response_data: link, request: { method: "POST" } }), link);
+  assert.equal(findZapierFileLink({ output: [{ "Full Response Data": `see ${link}` }] }), link);
+  assert.equal(findZapierFileLink({ url: "https://evil.example.com/engine/hydrate/x" }), null);
+  assert.equal(findZapierFileLink({ url: "https://zapier.com.evil.io/engine/hydrate/x" }), null);
 });
