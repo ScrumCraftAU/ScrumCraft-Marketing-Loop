@@ -18,7 +18,8 @@ Each day you receive week-over-week metric stats and the list of open experiment
   indicators to the lagging outcomes they predict. Ignore noise; a quiet day can have zero findings.
 - CHECK experiments that are running or due: did the target metric move as hypothesised?
 - ACT: for each experiment under review, recommend adopt / adapt / abandon / keep running, with reasoning.
-- PLAN: propose at most 3 new, concrete, cheap-to-run experiments aimed at the biggest gap. Do not
+- PLAN: propose at most max_new_experiments (often 0 — the team caps how many proposals wait for
+  a decision) new, concrete, cheap-to-run experiments aimed at the biggest gap. Do not
   duplicate open experiments. Each needs a falsifiable hypothesis and a single target metric key
   from the catalog.
 
@@ -126,14 +127,26 @@ function systemBlocks(docs: StrategyDoc[]): Anthropic.TextBlockParam[] {
 
 export async function analyse(input: ReturnType<typeof toModelInput>, docs: StrategyDoc[] = []) {
   const client = new Anthropic({ apiKey: env.anthropicApiKey });
-  const response = await client.messages.parse({
-    model: env.loopModel,
-    max_tokens: 16000,
-    thinking: { type: "adaptive" },
-    output_config: { effort: "high", format: zodOutputFormat(Analysis) },
-    system: systemBlocks(docs),
-    messages: [{ role: "user", content: JSON.stringify(input) }],
-  });
+  const request = () =>
+    client.messages.parse({
+      model: env.loopModel,
+      max_tokens: 16000,
+      thinking: { type: "adaptive" },
+      output_config: { effort: "high", format: zodOutputFormat(Analysis) },
+      system: systemBlocks(docs),
+      messages: [{ role: "user", content: JSON.stringify(input) }],
+    });
+
+  // One retry when the output doesn't validate against the schema (e.g. an unknown
+  // finding kind). API errors (rate limits, auth…) are not retried here — the SDK already
+  // retries transient ones.
+  let response: Awaited<ReturnType<typeof request>>;
+  try {
+    response = await request();
+  } catch (err) {
+    if (err instanceof Anthropic.APIError) throw err;
+    response = await request();
+  }
 
   if (response.stop_reason === "refusal") {
     throw new Error(`Model declined the analysis (${response.stop_details?.category ?? "unknown"})`);

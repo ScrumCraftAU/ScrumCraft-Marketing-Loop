@@ -9,6 +9,8 @@ import { analyse, toModelInput } from "@/lib/loop/analyse";
 import type { Experiment } from "@/lib/types";
 
 const OPEN_STATUSES = ["proposed", "approved", "running", "checking"] as const;
+/** The loop stops proposing new experiments while this many are waiting for approve/reject. */
+const MAX_AWAITING_DECISION = 6;
 
 export interface RunOptions {
   trigger: "scheduled" | "manual";
@@ -60,7 +62,10 @@ export async function runLoop({ trigger, triggeredBy }: RunOptions) {
     const experiments = (open ?? []) as Experiment[];
 
     const [sites, docs] = await Promise.all([computeSiteStats(), loadStrategyDocs()]);
-    const input = toModelInput(stats, experiments, sites);
+    // Don't let proposals pile up faster than the team can decide on them.
+    const awaitingDecision = experiments.filter((e) => e.status === "proposed").length;
+    const maxNew = Math.max(0, Math.min(3, MAX_AWAITING_DECISION - awaitingDecision));
+    const input = { ...toModelInput(stats, experiments, sites), max_new_experiments: maxNew };
 
     if (!isAnthropicConfigured()) {
       await supabase
@@ -107,7 +112,7 @@ export async function runLoop({ trigger, triggeredBy }: RunOptions) {
     }
 
     // PLAN: new experiments land as "proposed" for the team to approve.
-    const proposals = analysis.new_experiments.slice(0, 3).map((e) => {
+    const proposals = analysis.new_experiments.slice(0, maxNew).map((e) => {
       const target = validMetric(e.target_metric_key);
       return {
         created_by_run_id: runId,
