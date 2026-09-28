@@ -55,6 +55,7 @@ test("finds Zapier's Full Response Data link, and nothing else", () => {
   assert.equal(findZapierFileLink(link), link);
   assert.equal(findZapierFileLink({ full_response_data: link, request: { method: "POST" } }), link);
   assert.equal(findZapierFileLink({ output: [{ "Full Response Data": `see ${link}` }] }), link);
+  assert.equal(findZapierFileLink(`Full+Response+Data=${encodeURIComponent(link)}`), link);
   assert.equal(findZapierFileLink({ url: "https://evil.example.com/engine/hydrate/x" }), null);
   assert.equal(findZapierFileLink({ url: "https://zapier.com.evil.io/engine/hydrate/x" }), null);
 });

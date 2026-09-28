@@ -82,7 +82,16 @@ const ZAPIER_FILE_LINK = /https:\/\/(?:[a-z0-9-]+\.)?zapier\.com\/engine\/hydrat
  * zapier.com's hydrate path are returned, so the app never fetches arbitrary URLs.
  */
 export function findZapierFileLink(payload: unknown): string | null {
-  if (typeof payload === "string") return payload.match(ZAPIER_FILE_LINK)?.[0] ?? null;
+  if (typeof payload === "string") {
+    // Also accept form-encoded bodies ("Full+Response+Data=https%3A%2F%2Fzapier.com…").
+    let text = payload;
+    try {
+      text = decodeURIComponent(payload.replace(/\+/g, " "));
+    } catch {
+      // not percent-encoded
+    }
+    return text.match(ZAPIER_FILE_LINK)?.[0] ?? null;
+  }
   if (!payload || typeof payload !== "object") return null;
   for (const value of Object.values(payload as Record<string, unknown>)) {
     const found = findZapierFileLink(value);
