@@ -54,11 +54,30 @@ class IngestError extends Error {
  * Zapier swaps large API responses for a "Full Response Data" file link
  * (https://zapier.com/engine/hydrate/…). Download the report from that link.
  */
-async function fetchHydratedReport(payload: unknown): Promise<unknown> {
+async function fetchHydratedReport(payload: unknown, rawEventId: string): Promise<unknown> {
   const link = findZapierFileLink(payload);
   if (!link) {
     throw new IngestError("no GA4 reports found in payload — map step 3's Full Response Data (or Raw Output) into the webhook Data");
   }
+
+  // Each GA4 call produces a new file link. Seeing one again means the Zap is posting a
+  // fixed value (e.g. the setup test sample) instead of this iteration's live step 3 output.
+  const { data: earlier } = await db()
+    .from("raw_events")
+    .select("id, payload")
+    .eq("source_id", "ga4")
+    .neq("id", rawEventId)
+    .gte("received_at", new Date(Date.now() - 14 * 86_400_000).toISOString())
+    .order("received_at", { ascending: false })
+    .limit(500);
+  if ((earlier ?? []).some((e) => findZapierFileLink(e.payload) === link)) {
+    throw new IngestError(
+      "this Zapier response file was already received — step 4 is sending a fixed value, not this loop iteration's " +
+        "step 3 output (re-testing step 4 in the editor also re-sends the same sample)",
+      409,
+    );
+  }
+
   const res = await fetch(link, { cache: "no-store", signal: AbortSignal.timeout(20_000) });
   if (!res.ok) throw new IngestError(`could not download Zapier response file (${res.status})`, 502);
   const body = await res.text();
@@ -111,9 +130,10 @@ export async function POST(req: Request, ctx: RouteContext<"/api/ingest/[source]
     payload = text;
   }
 
+  const propertyId = new URL(req.url).searchParams.get("property");
   const { data: raw, error: rawErr } = await supabase
     .from("raw_events")
-    .insert({ source_id: source, payload })
+    .insert({ source_id: source, payload, meta: propertyId === null ? {} : { property: propertyId } })
     .select("id")
     .single();
   if (rawErr) return NextResponse.json({ error: rawErr.message }, { status: 500 });
@@ -123,12 +143,11 @@ export async function POST(req: Request, ctx: RouteContext<"/api/ingest/[source]
     const keys = new Set((known ?? []).map((m) => m.key as string));
 
     let result: { observations: Observation[]; warnings: string[] };
-    const propertyId = new URL(req.url).searchParams.get("property");
     if (source === "ga4" && propertyId !== null) {
       const properties = (src.config?.properties ?? {}) as Record<string, Ga4Property>;
       const property = properties[propertyId];
       if (!property) throw new IngestError(`unknown GA4 property '${propertyId}' — add it to sources.config`);
-      const report = extractReports(payload) ? payload : await fetchHydratedReport(payload);
+      const report = extractReports(payload) ? payload : await fetchHydratedReport(payload, raw.id);
       result = parseGa4(report, property.site);
       if (!result.observations.length && result.warnings.length) throw new IngestError(result.warnings.join("; "));
       result.observations = result.observations.filter((o) => keys.has(o.metric_key));
