@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { NotConfigured } from "@/components/not-configured";
 import { isSupabaseConfigured } from "@/lib/env";
 import { db } from "@/lib/supabase/server";
+import { runStatusLabel } from "@/lib/format";
 import type { Experiment, LoopFinding, LoopRun } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -31,11 +32,11 @@ export default async function LoopRunPage({ params }: PageProps<"/loop/[id]">) {
     <div className="space-y-6">
       <div>
         <Link href="/loop" className="text-sm text-muted-foreground hover:text-foreground">← All runs</Link>
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight">
+        <h1 className="mt-1 text-2xl font-black tracking-tight">
           Loop run · {format(parseISO(r.started_at), "d MMM yyyy, h:mm a")}
         </h1>
         <p className="text-sm text-muted-foreground">
-          <Badge variant={r.status === "failed" ? "destructive" : "secondary"}>{r.status}</Badge> {r.trigger}
+          <Badge variant={r.status === "failed" ? "destructive" : "secondary"}>{runStatusLabel(r.status)}</Badge> {r.trigger}
           {r.model ? ` · ${r.model}` : ""} · data week {r.period_start} → {r.period_end}
         </p>
       </div>
@@ -49,9 +50,9 @@ export default async function LoopRunPage({ params }: PageProps<"/loop/[id]">) {
         const items = ((findings ?? []) as LoopFinding[]).filter((f) => f.phase === phase.id);
         return (
           <section key={phase.id} className="space-y-2">
-            <h2 className="text-lg font-semibold">{phase.label}</h2>
+            <h2 className="text-lg font-bold">{phase.label}</h2>
             {items.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nothing notable.</p>
+              <p className="text-sm text-muted-foreground">Nothing stood out this time.</p>
             ) : (
               <ul className="space-y-2">
                 {items.map((f) => (
@@ -61,7 +62,7 @@ export default async function LoopRunPage({ params }: PageProps<"/loop/[id]">) {
                       <span className="text-muted-foreground">{f.kind.replace("_", " ")}</span> · {f.title}
                     </p>
                     <p className="mt-1 text-muted-foreground">{f.detail}</p>
-                    {f.metric_key && <p className="mt-1 font-mono text-xs text-muted-foreground">{f.metric_key}</p>}
+                    {f.metric_key && <p className="mt-1 text-xs text-muted-foreground">{f.metric_key}</p>}
                   </li>
                 ))}
               </ul>
@@ -71,7 +72,7 @@ export default async function LoopRunPage({ params }: PageProps<"/loop/[id]">) {
       })}
 
       <section className="space-y-2">
-        <h2 className="text-lg font-semibold">Plan — proposed experiments</h2>
+        <h2 className="text-lg font-bold">Plan — proposed experiments</h2>
         {!planned?.length ? (
           <p className="text-sm text-muted-foreground">No new experiments proposed.</p>
         ) : (

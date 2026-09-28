@@ -23,27 +23,27 @@ export function MetricTile({ stats, emphasis = false }: { stats: MetricStats; em
           <p className="text-sm leading-tight text-muted-foreground">{metric.name}</p>
           {dataDays === 0 && (
             <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
-              No data
+              Waiting for data
             </span>
           )}
         </div>
         <div className="flex items-end justify-between gap-3">
           <div className="min-w-0">
-            <p className={cn("font-semibold tabular-nums", emphasis ? "text-3xl" : "text-2xl")}>
+            <p className={cn("font-bold tabular-nums", emphasis ? "text-3xl" : "text-2xl")}>
               {formatValue(current, metric.unit)}
             </p>
             <p
               className={cn(
                 "mt-1 inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-medium tabular-nums",
-                tone === "good" && "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
-                tone === "bad" && "bg-red-500/10 text-red-700 dark:text-red-400",
+                tone === "good" && "bg-good/25 text-primary",
+                tone === "bad" && "bg-bad/15 text-primary",
                 tone === "neutral" && "bg-muted text-muted-foreground",
               )}
               title="This week vs the average of the previous 4 weeks"
             >
               <Arrow className="size-3" aria-hidden />
               {formatChange(changeVsBaseline)}
-              <span className="sr-only">{tone === "good" ? "(improving)" : tone === "bad" ? "(worsening)" : ""}</span>
+              <span className="sr-only">{tone === "good" ? "(improving)" : tone === "bad" ? "(needs attention)" : ""}</span>
             </p>
           </div>
           <Sparkline series={stats.series} unit={metric.unit} label={metric.name} />

@@ -13,6 +13,7 @@ export function RunLoopButton() {
 
   return (
     <Button
+      variant="cta"
       disabled={pending}
       onClick={() =>
         start(async () => {

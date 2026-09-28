@@ -17,7 +17,7 @@ const COLUMNS: { label: string; hint: string; statuses: ExperimentStatus[] }[] =
 export default async function ExperimentsPage() {
   const header = (
     <div>
-      <h1 className="text-2xl font-semibold tracking-tight">Experiments</h1>
+      <h1 className="text-2xl font-black tracking-tight">Experiments</h1>
       <p className="text-sm text-muted-foreground">The PDCA board. The loop proposes and reviews; the team decides.</p>
     </div>
   );
@@ -35,7 +35,7 @@ export default async function ExperimentsPage() {
           return (
             <section key={col.label} className="space-y-3 rounded-xl bg-muted/40 p-3">
               <div>
-                <h2 className="font-semibold">{col.label} <span className="text-muted-foreground">({items.length})</span></h2>
+                <h2 className="font-bold">{col.label} <span className="text-muted-foreground">({items.length})</span></h2>
                 <p className="text-xs text-muted-foreground">{col.hint}</p>
               </div>
               {items.map((e) => (
@@ -46,7 +46,7 @@ export default async function ExperimentsPage() {
                   </div>
                   <p className="text-muted-foreground">{e.hypothesis}</p>
                   {e.action && <p><span className="font-medium">Do:</span> {e.action}</p>}
-                  <p className="font-mono text-xs text-muted-foreground">
+                  <p className="text-xs text-muted-foreground">
                     {e.target_metric_key ?? "no metric"}
                     {e.expected_change_pct !== null ? ` · target ${e.expected_change_pct > 0 ? "+" : ""}${e.expected_change_pct}%` : ""}
                     {e.check_date ? ` · check ${e.check_date}` : ""}

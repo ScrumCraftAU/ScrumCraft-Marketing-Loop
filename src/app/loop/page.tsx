@@ -6,6 +6,7 @@ import { NotConfigured } from "@/components/not-configured";
 import { RunLoopButton } from "@/components/run-loop-button";
 import { isSupabaseConfigured } from "@/lib/env";
 import { db } from "@/lib/supabase/server";
+import { runStatusLabel } from "@/lib/format";
 import type { LoopRun } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +16,7 @@ export default async function LoopRunsPage() {
   const header = (
     <div className="flex items-end justify-between gap-3">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Loop runs</h1>
+        <h1 className="text-2xl font-black tracking-tight">Loop runs</h1>
         <p className="text-sm text-muted-foreground">Each run checks the numbers, reviews experiments and plans the next ones.</p>
       </div>
       <RunLoopButton />
@@ -54,7 +55,7 @@ export default async function LoopRunsPage() {
                 </TableCell>
                 <TableCell>{r.trigger}</TableCell>
                 <TableCell>
-                  <Badge variant={r.status === "failed" ? "destructive" : "secondary"}>{r.status}</Badge>
+                  <Badge variant={r.status === "failed" ? "destructive" : "secondary"}>{runStatusLabel(r.status)}</Badge>
                 </TableCell>
                 <TableCell className="max-w-xl truncate text-muted-foreground">{r.summary ?? r.error ?? "—"}</TableCell>
               </TableRow>

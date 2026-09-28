@@ -1,17 +1,15 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Red_Hat_Display } from "next/font/google";
 import { AppNav } from "@/components/app-nav";
+import { BrandMark } from "@/components/brand-mark";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
-const geistSans = Geist({
+// Brand guide: Red Hat Display — Black (headings), Bold (subheadings), Regular (body).
+const redHat = Red_Hat_Display({
   variable: "--font-sans",
   subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+  weight: ["400", "700", "900"],
 });
 
 export const metadata: Metadata = {
@@ -21,13 +19,11 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en-AU" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
+    <html lang="en-AU" className={`${redHat.variable} h-full antialiased`}>
       <body className="flex min-h-full flex-col bg-background text-foreground">
-        <header className="border-b">
-          <div className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="font-semibold tracking-tight">
-              ScrumCraft <span className="text-muted-foreground">Marketing Loop</span>
-            </p>
+        <header className="bg-primary text-primary-foreground">
+          <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <BrandMark />
             <AppNav />
           </div>
         </header>
