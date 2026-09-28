@@ -1,6 +1,7 @@
 import "server-only";
 import { db } from "@/lib/supabase/server";
 import { env, isConfluenceConfigured } from "@/lib/env";
+import { storageToText } from "@/lib/strategy/text";
 
 /** Per-doc cap so one very long page can't blow up the daily loop's cost. */
 const MAX_CHARS = 60_000;
@@ -14,31 +15,6 @@ export interface StrategyDoc {
   version: number | null;
   fetched_at: string | null;
   active: boolean;
-}
-
-/** Confluence storage-format XHTML → readable plain text that keeps structure. */
-export function storageToText(html: string): string {
-  return html
-    .replace(/<ac:structured-macro[^>]*ac:name="(toc|children|jira)"[\s\S]*?<\/ac:structured-macro>/g, "")
-    .replace(/<h([1-6])[^>]*>/g, (_, n) => `\n\n${"#".repeat(Number(n))} `)
-    .replace(/<\/h[1-6]>/g, "\n")
-    .replace(/<li[^>]*>/g, "\n- ")
-    .replace(/<(br|\/p|\/tr|\/div|\/blockquote)[^>]*>/g, "\n")
-    .replace(/<\/t[dh]>/g, " | ")
-    .replace(/<[^>]+>/g, "")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;|&rsquo;|&lsquo;/g, "'")
-    .replace(/&ldquo;|&rdquo;/g, '"')
-    .replace(/&ndash;/g, "–")
-    .replace(/&mdash;/g, "—")
-    .replace(/&[a-z]+;/g, " ")
-    .replace(/[ \t]+\n/g, "\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
 }
 
 async function fetchPage(pageId: string) {
