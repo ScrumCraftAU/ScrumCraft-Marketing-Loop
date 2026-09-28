@@ -38,8 +38,8 @@ export function SiteTable({ sites }: { sites: SiteStats[] }) {
                     {change !== null && Math.abs(change) >= 0.005 && (
                       <span
                         className={cn(
-                          "ml-2 text-xs",
-                          change > 0 ? "text-emerald-700 dark:text-emerald-400" : "text-red-700 dark:text-red-400",
+                          "ml-2 rounded px-1 py-0.5 text-xs text-primary",
+                          change > 0 ? "bg-good/25" : "bg-bad/15",
                         )}
                       >
                         {change > 0 ? "▲" : "▼"} {formatChange(change)}

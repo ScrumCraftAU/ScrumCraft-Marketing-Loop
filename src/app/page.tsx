@@ -10,6 +10,7 @@ import { computeStats } from "@/lib/metrics/stats";
 import { computeSiteStats } from "@/lib/metrics/sites";
 import { SiteTable } from "@/components/site-table";
 import { db } from "@/lib/supabase/server";
+import { runStatusLabel } from "@/lib/format";
 import type { FunnelStage, LoopFinding, LoopRun } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -67,7 +68,7 @@ export default async function DashboardPage() {
             {lastRun ? (
               <>
                 <p className="text-muted-foreground">
-                  <Badge variant={lastRun.status === "failed" ? "destructive" : "secondary"}>{lastRun.status}</Badge>{" "}
+                  <Badge variant={lastRun.status === "failed" ? "destructive" : "secondary"}>{runStatusLabel(lastRun.status)}</Badge>{" "}
                   {lastRun.trigger} · {formatDistanceToNow(parseISO(lastRun.started_at), { addSuffix: true })}
                 </p>
                 <p className="whitespace-pre-line">{lastRun.summary ?? lastRun.error ?? "—"}</p>
@@ -92,7 +93,7 @@ export default async function DashboardPage() {
       {sites.length > 0 && (
         <section className="space-y-2">
           <div>
-            <h2 className="text-lg font-semibold">Web properties</h2>
+            <h2 className="text-lg font-bold">Web properties</h2>
             <p className="text-sm text-muted-foreground">This week per GA4 property, with change vs the 4-week average.</p>
           </div>
           <SiteTable sites={sites} />
@@ -102,7 +103,7 @@ export default async function DashboardPage() {
       {(["leading", "lagging"] as const).map((indicator) => (
         <section key={indicator} className="space-y-4">
           <div>
-            <h2 className="text-lg font-semibold capitalize">{indicator} indicators</h2>
+            <h2 className="text-lg font-bold capitalize">{indicator} indicators</h2>
             <p className="text-sm text-muted-foreground">
               {indicator === "leading"
                 ? "Early signals we can move this week — traffic, engagement, lead capture."
@@ -135,7 +136,7 @@ function PageHeader({ asOf, periodStart }: { asOf?: string; periodStart?: string
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
+        <h1 className="text-2xl font-black tracking-tight">Dashboard</h1>
         {asOf && periodStart && (
           <p className="text-sm text-muted-foreground">
             Week {format(parseISO(periodStart), "d MMM")} – {format(parseISO(asOf), "d MMM yyyy")}, compared with the

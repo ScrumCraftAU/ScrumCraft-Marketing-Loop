@@ -25,3 +25,8 @@ export function formatChange(change: number | null): string {
   const sign = change > 0 ? "+" : change < 0 ? "−" : "";
   return `${sign}${Math.abs(change * 100).toFixed(0)}%`;
 }
+
+/** Supportive, plain-English labels for loop run states (brand voice: no negative framing). */
+export function runStatusLabel(status: "running" | "succeeded" | "failed"): string {
+  return { running: "Running", succeeded: "Complete", failed: "Didn't finish — see details" }[status];
+}

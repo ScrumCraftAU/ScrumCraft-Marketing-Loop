@@ -11,19 +11,23 @@ const LINKS = [
   { href: "/metrics", label: "Metrics & sources" },
 ];
 
+/** Top navigation, on the purple header band. */
 export function AppNav() {
   const pathname = usePathname();
   return (
-    <nav className="flex gap-1 overflow-x-auto">
+    <nav className="flex gap-1 overflow-x-auto [scrollbar-width:none]">
       {LINKS.map((l) => {
         const active = l.href === "/" ? pathname === "/" : pathname.startsWith(l.href);
         return (
           <Link
             key={l.href}
             href={l.href}
+            aria-current={active ? "page" : undefined}
             className={cn(
               "whitespace-nowrap rounded-md px-3 py-1.5 text-sm transition-colors",
-              active ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground",
+              active
+                ? "bg-primary-foreground font-bold text-primary"
+                : "text-primary-foreground/85 hover:bg-primary-foreground/10 hover:text-primary-foreground",
             )}
           >
             {l.label}
