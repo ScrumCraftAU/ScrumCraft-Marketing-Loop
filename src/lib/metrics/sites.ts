@@ -20,12 +20,18 @@ export async function computeSiteStats(asOfDate?: Date): Promise<SiteStats[]> {
   const week = (w: number) => new Set(dates.slice(w * 7, w * 7 + 7)); // w=4 is this week
 
   const { data: src } = await db().from("sources").select("config").eq("id", "ga4").maybeSingle();
-  const properties = (src?.config?.properties ?? {}) as Record<string, { site: string | null; name: string; brand: string }>;
-  const sites = Object.entries(properties).map(([propertyId, p]) => ({
-    propertyId,
-    ...p,
-    dimension: p.site ? `site:${p.site}` : "",
-  }));
+  const properties = (src?.config?.properties ?? {}) as Record<
+    string,
+    { site: string | null; name: string; brand: string; retired?: boolean }
+  >;
+  // Retired properties keep their history in the database but drop out of reporting.
+  const sites = Object.entries(properties)
+    .filter(([, p]) => !p.retired)
+    .map(([propertyId, p]) => ({
+      propertyId,
+      ...p,
+      dimension: p.site ? `site:${p.site}` : "",
+    }));
   if (!sites.length) return [];
 
   const { data, error } = await db()

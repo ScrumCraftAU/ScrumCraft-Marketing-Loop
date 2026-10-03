@@ -36,6 +36,7 @@ interface Ga4Property {
   site: string | null;
   name: string;
   brand: string;
+  retired?: boolean;
 }
 
 function authorised(req: Request) {
@@ -152,6 +153,12 @@ export async function POST(req: Request, ctx: RouteContext<"/api/ingest/[source]
       const properties = (src.config?.properties ?? {}) as Record<string, Ga4Property>;
       const property = properties[propertyId];
       if (!property) throw new IngestError(`unknown GA4 property '${propertyId}' — add it to sources.config`);
+      if (property.retired) {
+        throw new IngestError(
+          `GA4 property ${propertyId} (${property.name}) is retired — remove it from step 2 of the GA4 Zap`,
+          410,
+        );
+      }
       const report = extractReports(payload) ? payload : await fetchHydratedReport(payload, raw.id);
       result = parseGa4(report, property.site);
       if (!result.observations.length && result.warnings.length) throw new IngestError(result.warnings.join("; "));
