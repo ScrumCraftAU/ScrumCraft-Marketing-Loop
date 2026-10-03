@@ -21,18 +21,18 @@ it can get past SSO. You'll also need the `INGEST_SECRET` value.
 ### 2. Looping by Zapier: Create Loop From Line Items
 - Values → `property_id`:
   ```
-  317178274,552649204,552638790,538155047,552652741
+  552676870,552649204,552638790,538155047,552652741
   ```
 
 | Property ID | Site | Brand |
 |---|---|---|
-| 317178274 | www.scrumcraft.com (main: the dashboard totals) | ScrumCraft |
+| 552676870 | scrumcraft.com (main: the dashboard totals; stream G-CJDDMN02SK) | ScrumCraft |
 | 552649204 | Ticket Tailor event pages | ScrumCraft |
 | 552638790 | ScrumCraft Academy (scrumcraftacademy.com) | ScrumCraft Academy |
 | 538155047 | thinkwithclarity.com.au | Clarity |
 | 552652741 | remarkabletalent.com.au | Remarkable Talent |
 
-Retired (do not send; the app answers 410): 552648392 (scrumcraftacademy.com.au, 301-redirects to .com) and
+Retired (do not send; the app answers 410): 317178274 (legacy www.scrumcraft.com GA4, Site Kit tag G-N3SL34FSQ2; migration 0005), 552648392 (scrumcraftacademy.com.au, 301-redirects to .com) and
 497876700 (Academy on LearnWorlds; its pre-3-Sep-2026 history was copied into 552638790). See migration 0004.
 
 To add or remove a property, update `sources.config` for `ga4` in Supabase **and** this list.
