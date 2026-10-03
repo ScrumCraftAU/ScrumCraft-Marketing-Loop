@@ -65,3 +65,17 @@ test("finds Zapier's Full Response Data link, and nothing else", () => {
   assert.equal(findZapierFileLink({ url: "https://evil.example.com/engine/hydrate/x" }), null);
   assert.equal(findZapierFileLink({ url: "https://zapier.com.evil.io/engine/hydrate/x" }), null);
 });
+
+test("generate_lead counts as a form submission alongside form_submit", () => {
+  const payload = { reports: [{
+    dimensionHeaders: [{ name: "date" }, { name: "eventName" }],
+    metricHeaders: [{ name: "eventCount" }],
+    rows: [
+      { dimensionValues: [{ value: "20261001" }, { value: "form_submit" }], metricValues: [{ value: "2" }] },
+      { dimensionValues: [{ value: "20261001" }, { value: "generate_lead" }], metricValues: [{ value: "3" }] },
+      { dimensionValues: [{ value: "20261001" }, { value: "page_view" }], metricValues: [{ value: "90" }] },
+    ],
+  }] };
+  const { observations } = parseGa4(payload, null);
+  assert.equal(find(observations, "ga4.form_submits", "2026-10-01"), 5);
+});

@@ -36,8 +36,11 @@ const TOTAL_METRICS: Record<string, string> = {
   newUsers: "ga4.new_users",
   engagementRate: "ga4.engagement_rate",
 };
+// form_submit comes from GA4 Enhanced measurement; HubSpot embedded forms are invisible to it, so
+// enquiries are sent as generate_lead (thank-you page custom event or a Tag Manager listener).
 const EVENT_METRICS: Record<string, string> = {
   form_submit: "ga4.form_submits",
+  generate_lead: "ga4.form_submits",
 };
 
 /** The same request body is used for every property in the Zap. */
