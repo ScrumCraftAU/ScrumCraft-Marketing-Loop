@@ -29,7 +29,7 @@ export async function refreshStrategyDocsNow() {
   }
 }
 
-const Status = z.enum(["proposed", "approved", "running", "checking", "adopted", "adapted", "abandoned", "rejected"]);
+const Status = z.enum(["proposed", "approved", "running", "checking", "adopted", "adapted", "abandoned", "rejected", "done"]);
 
 export async function setExperimentStatus(id: string, status: ExperimentStatus) {
   const next = Status.parse(status);

@@ -7,9 +7,9 @@ import { setExperimentStatus } from "@/app/actions";
 import type { ExperimentStatus } from "@/lib/types";
 
 const NEXT: Record<ExperimentStatus, { to: ExperimentStatus; label: string }[]> = {
-  proposed: [{ to: "approved", label: "Approve" }, { to: "rejected", label: "Reject" }],
-  approved: [{ to: "running", label: "Start" }],
-  running: [{ to: "checking", label: "Check now" }],
+  proposed: [{ to: "approved", label: "Approve" }, { to: "done", label: "Mark done" }, { to: "rejected", label: "Reject" }],
+  approved: [{ to: "running", label: "Start" }, { to: "done", label: "Mark done" }],
+  running: [{ to: "checking", label: "Check now" }, { to: "done", label: "Mark done" }],
   checking: [
     { to: "adopted", label: "Adopt" },
     { to: "adapted", label: "Adapt" },
@@ -19,6 +19,7 @@ const NEXT: Record<ExperimentStatus, { to: ExperimentStatus; label: string }[]> 
   adapted: [],
   abandoned: [],
   rejected: [],
+  done: [],
 };
 
 export function ExperimentActions({ id, status }: { id: string; status: ExperimentStatus }) {

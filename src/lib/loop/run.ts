@@ -65,7 +65,24 @@ export async function runLoop({ trigger, triggeredBy }: RunOptions) {
     // Don't let proposals pile up faster than the team can decide on them.
     const awaitingDecision = experiments.filter((e) => e.status === "proposed").length;
     const maxNew = Math.max(0, Math.min(3, MAX_AWAITING_DECISION - awaitingDecision));
-    const input = { ...toModelInput(stats, experiments, sites), max_new_experiments: maxNew };
+    // Recently closed items (done, adopted, rejected…) so the loop doesn't re-propose them.
+    const { data: closed } = await supabase
+      .from("experiments")
+      .select("title, status, result_notes, updated_at")
+      .not("status", "in", `(${OPEN_STATUSES.join(",")})`)
+      .gte("updated_at", new Date(Date.now() - 90 * 86_400_000).toISOString())
+      .order("updated_at", { ascending: false })
+      .limit(30);
+    const input = {
+      ...toModelInput(stats, experiments, sites),
+      max_new_experiments: maxNew,
+      recent_decisions: (closed ?? []).map((e) => ({
+        title: e.title,
+        outcome: e.status,
+        notes: e.result_notes,
+        decided: String(e.updated_at).slice(0, 10),
+      })),
+    };
 
     if (!isAnthropicConfigured()) {
       await supabase

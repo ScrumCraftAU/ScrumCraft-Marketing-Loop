@@ -20,7 +20,8 @@ Each day you receive week-over-week metric stats and the list of open experiment
 - ACT: for each experiment under review, recommend adopt / adapt / abandon / keep running, with reasoning.
 - PLAN: propose at most max_new_experiments (often 0 — the team caps how many proposals wait for
   a decision) new, concrete, cheap-to-run experiments aimed at the biggest gap. Do not
-  duplicate open experiments. Each needs a falsifiable hypothesis and a single target metric key
+  duplicate open experiments or anything in recent_decisions (done = already implemented;
+  rejected = the team chose not to; adopted/adapted/abandoned = tested and decided). Each needs a falsifiable hypothesis and a single target metric key
   from the catalog.
 
 Metrics with dataDays = 0 have no data yet (the source is probably not wired) — say so once in the

@@ -11,7 +11,7 @@ const COLUMNS: { label: string; hint: string; statuses: ExperimentStatus[] }[] =
   { label: "Plan", hint: "Proposed by the loop — approve or reject", statuses: ["proposed", "approved"] },
   { label: "Do", hint: "Running in the real world", statuses: ["running"] },
   { label: "Check", hint: "Check date reached — review the result", statuses: ["checking"] },
-  { label: "Act", hint: "Decided: adopted, adapted or abandoned", statuses: ["adopted", "adapted", "abandoned"] },
+  { label: "Act", hint: "Done, or decided: adopted, adapted or abandoned", statuses: ["done", "adopted", "adapted", "abandoned"] },
 ];
 
 export default async function ExperimentsPage() {
@@ -46,6 +46,11 @@ export default async function ExperimentsPage() {
                   </div>
                   <p className="text-muted-foreground">{e.hypothesis}</p>
                   {e.action && <p><span className="font-medium">Do:</span> {e.action}</p>}
+                  {e.result_notes && (
+                    <p className="rounded bg-good/15 px-2 py-1">
+                      <span className="font-medium">Outcome:</span> {e.result_notes}
+                    </p>
+                  )}
                   <p className="text-xs text-muted-foreground">
                     {e.target_metric_key ?? "no metric"}
                     {e.expected_change_pct !== null ? ` · target ${e.expected_change_pct > 0 ? "+" : ""}${e.expected_change_pct}%` : ""}

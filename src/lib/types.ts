@@ -57,7 +57,7 @@ export interface LoopFinding {
 }
 
 export type ExperimentStatus =
-  | "proposed" | "approved" | "running" | "checking" | "adopted" | "adapted" | "abandoned" | "rejected";
+  | "proposed" | "approved" | "running" | "checking" | "adopted" | "adapted" | "abandoned" | "rejected" | "done";
 
 export interface Experiment {
   id: string;
