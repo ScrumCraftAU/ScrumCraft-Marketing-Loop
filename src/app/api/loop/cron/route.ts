@@ -5,8 +5,9 @@ import { runLoop } from "@/lib/loop/run";
 export const maxDuration = 300;
 
 /**
- * Daily PDCA loop entry point for Vercel Cron (not scheduled yet — add a `crons` entry
- * to vercel.json when we're ready). Vercel sends `Authorization: Bearer $CRON_SECRET`.
+ * Daily PDCA loop entry point for Vercel Cron (scheduled in vercel.json at 21:30 UTC:
+ * 8:00am Adelaide in daylight time, 7:00am in standard time — always after the 6:30am
+ * GA4 ingest). Vercel sends `Authorization: Bearer $CRON_SECRET`.
  */
 export async function GET(req: Request) {
   if (!env.cronSecret || req.headers.get("authorization") !== `Bearer ${env.cronSecret}`) {

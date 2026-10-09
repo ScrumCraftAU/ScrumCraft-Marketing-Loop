@@ -19,7 +19,7 @@ One internal dashboard for ScrumCraft's marketing metrics, plus an automated dai
 
 Triggers:
 - **On demand:** the "Run loop now" button (server action, `runLoopNow`).
-- **Daily:** `GET /api/loop/cron` with `Authorization: Bearer $CRON_SECRET`. This isn't scheduled yet; add a `crons` entry to `vercel.json` when we're ready.
+- **Daily:** Vercel Cron calls `GET /api/loop/cron` with `Authorization: Bearer $CRON_SECRET` at 21:30 UTC (8:00am Adelaide in daylight time, 7:00am in standard time), after the 6:30am GA4 ingest. Monday's run feeds the weekly review; Wednesday's feeds backlog refinement.
 
 Stats are computed deterministically in code (`src/lib/metrics/stats.ts`). Claude only receives weekly aggregates (`src/lib/loop/analyse.ts`), and the snapshot it saw is stored on each `loop_runs` row for audit.
 
