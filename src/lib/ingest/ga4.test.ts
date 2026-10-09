@@ -79,3 +79,28 @@ test("generate_lead counts as a form submission alongside form_submit", () => {
   const { observations } = parseGa4(payload, null);
   assert.equal(find(observations, "ga4.form_submits", "2026-10-01"), 5);
 });
+
+test("booking site rolls checkout views and purchases into main-site totals", () => {
+  const payload = { reports: [
+    { dimensionHeaders: [{ name: "date" }], metricHeaders: [{ name: "sessions" }],
+      rows: [{ dimensionValues: [{ value: "20261001" }], metricValues: [{ value: "9" }] }] },
+    { dimensionHeaders: [{ name: "date" }, { name: "pagePath" }], metricHeaders: [{ name: "screenPageViews" }],
+      rows: [
+        { dimensionValues: [{ value: "20261001" }, { value: "/checkout/view-event/id/8916946/chk/e75/" }], metricValues: [{ value: "4" }] },
+        { dimensionValues: [{ value: "20261001" }, { value: "/checkout/scrumcraft/order-complete" }], metricValues: [{ value: "1" }] },
+      ] },
+    { dimensionHeaders: [{ name: "date" }, { name: "eventName" }], metricHeaders: [{ name: "eventCount" }],
+      rows: [{ dimensionValues: [{ value: "20261001" }, { value: "purchase" }], metricValues: [{ value: "1" }] }] },
+  ] };
+  const booking = parseGa4(payload, "tickettailor", { bookingSite: true }).observations;
+  assert.equal(find(booking, "ga4.checkout_views", "2026-10-01", "site:tickettailor"), 5);
+  assert.equal(find(booking, "ga4.purchases", "2026-10-01", "site:tickettailor"), 1);
+  assert.equal(find(booking, "ga4.booking_checkout_views", "2026-10-01"), 5);
+  assert.equal(find(booking, "ga4.booking_purchases", "2026-10-01"), 1);
+  // never writes the main site's own keys at the main-site level
+  assert.equal(find(booking, "ga4.checkout_views", "2026-10-01"), undefined);
+  assert.equal(find(booking, "ga4.sessions", "2026-10-01"), undefined);
+  // other sites don't roll up
+  const other = parseGa4(payload, "scrumcraftacademy.com").observations;
+  assert.equal(find(other, "ga4.booking_checkout_views", "2026-10-01"), undefined);
+});

@@ -71,7 +71,8 @@ export async function computeStats(asOfDate?: Date): Promise<StatsSnapshot> {
   const to = allDates[allDates.length - 1];
 
   const [{ data: metrics, error: mErr }, { data: obs, error: oErr }] = await Promise.all([
-    db().from("metrics").select("*").eq("active", true).order("sort_order"),
+    // All metrics, including inactive ones: derived metrics may use hidden inputs.
+    db().from("metrics").select("*").order("sort_order"),
     db()
       .from("metric_observations")
       .select("metric_key, date, value")
@@ -100,7 +101,7 @@ export async function computeStats(asOfDate?: Date): Promise<StatsSnapshot> {
   const base = baselineWeeks.map((dates) => aggregateAll(catalog, daily, dates));
   const perDay = allDates.map((d) => ({ date: d, values: aggregateAll(catalog, daily, [d]) }));
 
-  const result: MetricStats[] = catalog.map((m) => {
+  const result: MetricStats[] = catalog.filter((m) => m.active).map((m) => {
     const baseVals = base.map((b) => b[m.key]).filter((v): v is number => v !== null);
     const baseline = baseVals.length ? baseVals.reduce((a, b) => a + b, 0) / baseVals.length : null;
     const changeVsPrior = pct(cur[m.key], prev[m.key]);

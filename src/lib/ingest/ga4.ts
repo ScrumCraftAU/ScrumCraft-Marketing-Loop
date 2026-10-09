@@ -41,6 +41,17 @@ const TOTAL_METRICS: Record<string, string> = {
 const EVENT_METRICS: Record<string, string> = {
   form_submit: "ga4.form_submits",
   generate_lead: "ga4.form_submits",
+  purchase: "ga4.purchases",
+};
+
+/**
+ * Booking site (Ticket Tailor): its checkout page views and purchases also count towards the
+ * main-site totals (dimension ''), under their own keys so they never collide with the main
+ * site's own values. Derived metrics combine them for the dashboard.
+ */
+const BOOKING_ROLLUP: Record<string, string> = {
+  "ga4.checkout_views": "ga4.booking_checkout_views",
+  "ga4.purchases": "ga4.booking_purchases",
 };
 
 /** The same request body is used for every property in the Zap. */
@@ -116,8 +127,14 @@ const isoDate = (d: string) => `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8
 /**
  * @param siteKey null for the main site (stored as the total, dimension ''); otherwise
  *                observations are stored under dimension `site:<key>`.
+ * @param opts.bookingSite also roll this site's checkout views and purchases into the
+ *                main-site totals (see BOOKING_ROLLUP).
  */
-export function parseGa4(payload: unknown, siteKey: string | null): { observations: Observation[]; warnings: string[] } {
+export function parseGa4(
+  payload: unknown,
+  siteKey: string | null,
+  opts: { bookingSite?: boolean } = {},
+): { observations: Observation[]; warnings: string[] } {
   const reports = extractReports(payload);
   if (!reports) return { observations: [], warnings: ["no GA4 reports found in payload"] };
 
@@ -174,9 +191,18 @@ export function parseGa4(payload: unknown, siteKey: string | null): { observatio
   // Days with sessions but no organic / conversions are real zeros, not missing data.
   const dates = new Set([...sums.values()].filter((o) => o.metric_key === "ga4.sessions" && o.dimension === dim()).map((o) => o.date));
   for (const date of dates) {
-    for (const key of ["ga4.organic_sessions", "ga4.course_page_views", "ga4.checkout_views", "ga4.form_submits"]) {
+    for (const key of ["ga4.organic_sessions", "ga4.course_page_views", "ga4.checkout_views", "ga4.form_submits", "ga4.purchases"]) {
       const k = `${key}\u0000${date}\u0000${dim()}`;
       if (!sums.has(k)) sums.set(k, { metric_key: key, date, dimension: dim(), value: 0 });
+    }
+  }
+
+  if (opts.bookingSite) {
+    for (const o of [...sums.values()]) {
+      const rollupKey = BOOKING_ROLLUP[o.metric_key];
+      if (rollupKey && o.dimension === dim()) {
+        sums.set(`${rollupKey}\u0000${o.date}\u0000`, { metric_key: rollupKey, date: o.date, dimension: "", value: o.value });
+      }
     }
   }
 

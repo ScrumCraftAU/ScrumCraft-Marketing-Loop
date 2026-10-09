@@ -37,6 +37,8 @@ interface Ga4Property {
   name: string;
   brand: string;
   retired?: boolean;
+  /** Ticket Tailor: checkout views and purchases also roll into the main-site totals. */
+  booking_site?: boolean;
 }
 
 function authorised(req: Request) {
@@ -160,7 +162,7 @@ export async function POST(req: Request, ctx: RouteContext<"/api/ingest/[source]
         );
       }
       const report = extractReports(payload) ? payload : await fetchHydratedReport(payload, raw.id);
-      result = parseGa4(report, property.site);
+      result = parseGa4(report, property.site, { bookingSite: property.booking_site === true });
       if (!result.observations.length && result.warnings.length) throw new IngestError(result.warnings.join("; "));
       result.observations = result.observations.filter((o) => keys.has(o.metric_key));
     } else {
