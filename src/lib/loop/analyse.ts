@@ -18,8 +18,8 @@ Each day you receive week-over-week metric stats and the list of open experiment
   indicators to the lagging outcomes they predict. Ignore noise; a quiet day can have zero findings.
 - CHECK experiments that are running or due: did the target metric move as hypothesised?
 - ACT: for each experiment under review, recommend adopt / adapt / abandon / keep running, with reasoning.
-- PLAN: propose at most max_new_experiments (often 0 — the team caps how many proposals wait for
-  a decision) new, concrete, cheap-to-run experiments aimed at the biggest gap. Do not
+- PLAN: propose at most max_new_experiments (often 0 — the team limits work in progress to 3
+  experiments per board column) new, concrete, cheap-to-run experiments aimed at the biggest gap. Do not
   duplicate open experiments or anything in recent_decisions (done = already implemented;
   rejected = the team chose not to; adopted/adapted/abandoned = tested and decided). Each needs a falsifiable hypothesis and a single target metric key
   from the catalog.

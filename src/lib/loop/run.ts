@@ -6,11 +6,11 @@ import { computeStats } from "@/lib/metrics/stats";
 import { computeSiteStats } from "@/lib/metrics/sites";
 import { loadStrategyDocs } from "@/lib/strategy/confluence";
 import { analyse, toModelInput } from "@/lib/loop/analyse";
+import { syncExperimentsFromJira } from "@/lib/jira/sync";
+import { WIP_LIMIT } from "@/lib/jira/status";
 import type { Experiment } from "@/lib/types";
 
 const OPEN_STATUSES = ["proposed", "approved", "running", "checking"] as const;
-/** The loop stops proposing new experiments while this many are waiting for approve/reject. */
-const MAX_AWAITING_DECISION = 6;
 
 export interface RunOptions {
   trigger: "scheduled" | "manual";
@@ -47,11 +47,16 @@ export async function runLoop({ trigger, triggeredBy }: RunOptions) {
   const runId = run.id as string;
 
   try {
+    // Pick up moves made in Jira before reasoning about the board.
+    await syncExperimentsFromJira();
+
     // CHECK: running experiments whose check date has arrived are now due for review.
+    // Experiments linked to Jira move only when their Jira item does.
     await supabase
       .from("experiments")
       .update({ status: "checking" })
       .eq("status", "running")
+      .is("jira_key", null)
       .lte("check_date", stats.asOf);
 
     const { data: open, error: expErr } = await supabase
@@ -62,9 +67,9 @@ export async function runLoop({ trigger, triggeredBy }: RunOptions) {
     const experiments = (open ?? []) as Experiment[];
 
     const [sites, docs] = await Promise.all([computeSiteStats(), loadStrategyDocs()]);
-    // Don't let proposals pile up faster than the team can decide on them.
-    const awaitingDecision = experiments.filter((e) => e.status === "proposed").length;
-    const maxNew = Math.max(0, Math.min(3, MAX_AWAITING_DECISION - awaitingDecision));
+    // WIP: Plan (proposed + approved) holds at most WIP_LIMIT, so only propose into free slots.
+    const inPlan = experiments.filter((e) => e.status === "proposed" || e.status === "approved").length;
+    const maxNew = Math.max(0, WIP_LIMIT - inPlan);
     // Recently closed items (done, adopted, rejected…) so the loop doesn't re-propose them.
     const { data: closed } = await supabase
       .from("experiments")

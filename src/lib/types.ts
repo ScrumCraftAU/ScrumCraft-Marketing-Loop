@@ -74,6 +74,9 @@ export interface Experiment {
   check_date: string | null;
   result_value: number | null;
   result_notes: string | null;
+  jira_key: string | null;
+  jira_status: string | null;
+  jira_synced_at: string | null;
   created_at: string;
   updated_at: string;
 }

@@ -14,11 +14,12 @@ One internal dashboard for ScrumCraft's marketing metrics, plus an automated dai
 | **Check** | loop (code) | Compute week-over-week stats for every metric: this week vs last week vs the 4-week average; rule-flag big moves. Running experiments past their check date move to `checking`. |
 | **Check** | loop (Claude) | Explain what materially changed, and link leading indicators to the lagging outcomes they predict. |
 | **Act** | loop → team | Claude recommends adopt / adapt / abandon / keep running for each experiment under review. **The team makes the call** on the Experiments board. |
-| **Plan** | loop → team | Claude proposes at most 3 new experiments, each with a falsifiable hypothesis and one target metric. They land as `proposed`. |
-| **Do** | team | Approve, then start the experiment (it moves to `running`, with a start date). |
+| **Plan** | loop → team | Claude proposes new experiments only into free Plan slots (WIP limit: 3 each in Plan, Do and Check), each with a falsifiable hypothesis and one target metric. They land as `proposed`. |
+| **Do** | team | Approve (this creates a Jira story in SCM under SCM-123), then start the experiment (it moves to `running`, with a start date). |
 
 Triggers:
 - **On demand:** the "Run loop now" button (server action, `runLoopNow`).
+- **Jira sync:** each experiment links to one primary Jira item (`experiments.jira_key`). Moving it on the board transitions the Jira item first; moving the Jira item moves the experiment the next time the board loads or the loop runs. Jira To Do (Backlog, Ready To Do) = Plan, anything that has left To Do (Planning, In Progress) = Do, In Review = Check, Done = Act (done), Close = Act (abandoned). Linked experiments only change column when their Jira item does. Uses the Confluence Atlassian credentials unless `JIRA_EMAIL` / `JIRA_API_TOKEN` are set.
 - **Daily:** Vercel Cron calls `GET /api/loop/cron` with `Authorization: Bearer $CRON_SECRET` at 21:30 UTC (8:00am Adelaide in daylight time, 7:00am in standard time), after the 6:30am GA4 ingest. Monday's run feeds the weekly review; Wednesday's feeds backlog refinement.
 
 Stats are computed deterministically in code (`src/lib/metrics/stats.ts`). Claude only receives weekly aggregates (`src/lib/loop/analyse.ts`), and the snapshot it saw is stored on each `loop_runs` row for audit.
