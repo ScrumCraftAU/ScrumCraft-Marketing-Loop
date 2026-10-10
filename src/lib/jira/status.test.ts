@@ -8,16 +8,19 @@ test("Jira statuses map to experiment columns", () => {
   assert.equal(experimentStatusForJira("Planning", "new"), "running"); // left To Do
   assert.equal(experimentStatusForJira("In Progress", "indeterminate"), "running");
   assert.equal(experimentStatusForJira("In Review", "indeterminate"), "checking");
-  assert.equal(experimentStatusForJira("Done", "done"), "done");
+  assert.equal(experimentStatusForJira("Done", "done"), "checking"); // build finished → measure
   assert.equal(experimentStatusForJira("Close", "done"), "abandoned");
 });
 
 test("sync only moves an experiment when the Jira column differs", () => {
   assert.equal(syncedStatus("approved", "In Progress", "indeterminate"), "running");
   assert.equal(syncedStatus("running", "In Review", "indeterminate"), "checking");
-  assert.equal(syncedStatus("checking", "Done", "done"), "done");
-  // adopted/adapted are finer Act decisions — Jira "Done" must not overwrite them
+  assert.equal(syncedStatus("running", "Done", "done"), "checking");
+  assert.equal(syncedStatus("checking", "Done", "done"), null);
+  // decided experiments stay decided when the build is Done
   assert.equal(syncedStatus("adopted", "Done", "done"), null);
+  assert.equal(syncedStatus("done", "Done", "done"), null);
+  assert.equal(syncedStatus("checking", "Close", "done"), "abandoned");
   assert.equal(syncedStatus("running", "Planning", "new"), null);
   // reopened in Jira → back to Plan
   assert.equal(syncedStatus("done", "Ready To Do", "new"), "approved");

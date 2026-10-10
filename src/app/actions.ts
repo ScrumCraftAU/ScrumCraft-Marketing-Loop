@@ -8,7 +8,7 @@ import { isConfluenceConfigured, isJiraConfigured, isSupabaseConfigured } from "
 import { runLoop } from "@/lib/loop/run";
 import { refreshStrategyDocs } from "@/lib/strategy/confluence";
 import { createExperimentStory, transitionTo } from "@/lib/jira/client";
-import { WIP_LIMIT, columnOf, jiraTargetsFor } from "@/lib/jira/status";
+import { WIP_LIMIT, columnOf, isActDecision, jiraTargetsFor } from "@/lib/jira/status";
 import type { Experiment, ExperimentStatus } from "@/lib/types";
 
 export async function runLoopNow() {
@@ -60,7 +60,7 @@ export async function setExperimentStatus(id: string, status: ExperimentStatus) 
   if (isJiraConfigured()) {
     try {
       if (exp.jira_key) {
-        const landed = await transitionTo(exp.jira_key, jiraTargetsFor(next));
+        const landed = await transitionTo(exp.jira_key, jiraTargetsFor(next), { leaveIfDone: isActDecision(next) });
         if (landed) patch.jira_status = landed;
       } else if (next === "approved") {
         const h = await headers();

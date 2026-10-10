@@ -84,12 +84,17 @@ export async function createExperimentStory(e: Experiment, boardUrl: string): Pr
   return created.key;
 }
 
-/** Moves the item to the first available target status. Returns the status it ends in. */
-export async function transitionTo(key: string, targets: string[]): Promise<string | null> {
+/**
+ * Moves the item to the first available target status and returns the status it ends in.
+ * With `leaveIfDone`, an item already in a done status is left alone (a delivered build
+ * stays delivered whatever the experiment's result).
+ */
+export async function transitionTo(key: string, targets: string[], { leaveIfDone = false } = {}): Promise<string | null> {
   if (!targets.length) return null;
   const wanted = targets.map((t) => t.toLowerCase());
   const current = (await getStatuses([key])).get(key);
   if (current && wanted.includes(current.name.toLowerCase())) return current.name;
+  if (current && leaveIfDone && current.category === "done") return current.name;
 
   const { transitions } = await jira<{ transitions: { id: string; to: { name: string } }[] }>(
     `/issue/${encodeURIComponent(key)}/transitions`,
