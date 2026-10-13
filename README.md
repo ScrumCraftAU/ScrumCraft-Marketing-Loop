@@ -93,7 +93,9 @@ Derived metrics (`paid.spend`, `paid.cost_per_booking`, `paid.roas`, …) are **
 
 **GA4** is one daily Zap that forwards raw GA4 reports for 7 properties. Setup: [docs/ga4-zap.md](docs/ga4-zap.md).
 The main site (www.scrumcraft.com) feeds the dashboard totals, and the other properties are stored under
-`site:<name>` dimensions and shown in the Web properties table. Other sources use the generic format below.
+`site:<name>` dimensions and shown in the Web properties table. Search Console clicks, impressions and position
+arrive through the same Zap (a branch for the main property only) as `gsc.*` metrics. Other sources use the
+generic format below.
 
 ```
 POST /api/ingest/<source>            # source = ga4 | linkedin_ads | meta_ads | hubspot | ticket_tailor | seo
@@ -123,6 +125,7 @@ With no Supabase env set, every page renders a "not connected" state.
 1. Supabase project + apply migration; Vercel project linked to this repo with SSO + env vars
 2. Wire GA4 via Zapier → `/api/ingest/ga4`
 3. HubSpot + Ticket Tailor pulls (scheduled route handlers → same observation table)
-4. LinkedIn / Meta ads via Zapier; SEO via Semrush position tracking
+4. LinkedIn / Meta ads via Zapier; SEO via Search Console through the GA4 link (`gsc.*`). Semrush is kept
+   for competitor and keyword research only, not as a feed
 5. Schedule the daily loop (Vercel Cron) and add a morning digest (email/Teams)
 6. Set targets per metric so the loop can report target gaps
