@@ -79,8 +79,10 @@ fail their whole batch, hence a separate branch.
 Search Console data reaches GA4 about 48 hours after Google collects it.
 
 ## Notes
-- www.scrumcraft.com's GA4 property runs on **Los Angeles time**, so its "days" end
-  at 5:30pm Adelaide. Switching the property timezone to Australia/Adelaide (GA4 Admin →
-  Property details) fixes this from then on.
+- The main-site property 552676870 reports in **Adelaide time** (checked 13 Oct 2026). The retired
+  legacy property 317178274 ran on Los Angeles time, so its "days" ended at 5:30pm Adelaide.
+- The main site has no tag of its own yet: Site Kit's Google tag **G-N3SL34FSQ2** (owned by the
+  retired 317178274) forwards to the main stream G-CJDDMN02SK. Don't delete or trash 317178274, or
+  disconnect Site Kit, until the site is tagged with G-CJDDMN02SK directly.
 - The property's only configured key event is `reduced_bounce_rate`, so the app uses
   `form_submit` events and checkout page views as conversion signals instead.
