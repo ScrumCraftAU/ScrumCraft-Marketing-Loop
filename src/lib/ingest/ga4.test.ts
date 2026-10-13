@@ -104,3 +104,31 @@ test("booking site rolls checkout views and purchases into main-site totals", ()
   const other = parseGa4(payload, "scrumcraftacademy.com").observations;
   assert.equal(find(other, "ga4.booking_checkout_views", "2026-10-01"), undefined);
 });
+
+test("Search Console clicks, impressions and weighted position by landing page", () => {
+  const row = (date: string, page: string, clicks: number, impressions: number, position: number) => ({
+    dimensionValues: [{ value: date }, { value: page }],
+    metricValues: [{ value: String(clicks) }, { value: String(impressions) }, { value: String(position) }],
+  });
+  const report = {
+    dimensionHeaders: [{ name: "date" }, { name: "landingPage" }],
+    metricHeaders: [{ name: "organicGoogleSearchClicks" }, { name: "organicGoogleSearchImpressions" }, { name: "organicGoogleSearchAveragePosition" }],
+    rows: [
+      row("20261005", "/", 2, 10, 3),
+      row("20261005", "/scrumatscale/", 0, 20, 17.5),
+      row("20261005", "/become-a-registered-scrum-trainer-rst/", 1, 10, 9),
+    ],
+  };
+  const { observations: obs, warnings } = parseGa4({ reports: [report] }, null);
+  assert.deepEqual(warnings, []);
+  assert.equal(find(obs, "gsc.clicks", "2026-10-05"), 3);
+  assert.equal(find(obs, "gsc.impressions", "2026-10-05"), 40);
+  assert.equal(find(obs, "gsc.position_weight", "2026-10-05"), 30 + 350 + 90);
+  assert.equal(find(obs, "gsc.course_clicks", "2026-10-05"), 1);
+  assert.equal(find(obs, "gsc.course_impressions", "2026-10-05"), 30);
+  assert.equal(find(obs, "gsc.course_position_weight", "2026-10-05"), 440);
+  assert.equal(find(obs, "gsc.impressions", "2026-10-05", "page:/scrumatscale/"), 20);
+  assert.equal(find(obs, "gsc.position_weight", "2026-10-05", "page:/scrumatscale/"), 350);
+  // No zero-filling: Search Console lags GA4 by a few days, so missing days aren't zeros.
+  assert.equal(find(obs, "ga4.organic_sessions", "2026-10-05"), undefined);
+});

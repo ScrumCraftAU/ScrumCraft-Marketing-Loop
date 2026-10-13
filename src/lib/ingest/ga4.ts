@@ -8,6 +8,7 @@
  *   [date, sessionDefaultChannelGroup]  sessions        → channel breakdown + organic
  *   [date, pagePath]                    screenPageViews → course / checkout page views
  *   [date, eventName]                   eventCount      → conversion events
+ *   [date, landingPage]                 organicGoogleSearch* → Search Console (main site only)
  *
  * Kept dependency-free so it can be unit-tested with plain `node --test`.
  */
@@ -30,6 +31,14 @@ interface Report {
 export const COURSE_PAGE =
   /^\/(courses\/|training\/?$|scrumatscale\/?$|safe_training\/?$|events\/scrumcraft(\/|$))|^\/[a-z0-9-]+-(january|february|march|april|may|june|july|august|september|october|november|december)-20\d\d\/?$/i;
 export const CHECKOUT_PAGE = /^\/checkout\//i;
+/**
+ * Course pages for Search Console: COURSE_PAGE plus the program pages that sell a course but
+ * don't follow its URL patterns. Kept separate so ga4.course_page_views' history is unchanged.
+ */
+export const SEARCH_COURSE_PAGE = new RegExp(
+  `${COURSE_PAGE.source}|^\\/(become-a-registered-scrum-trainer-rst|unlock-the-power-of-ai|registered-scrum-basics)\\/?$`,
+  "i",
+);
 
 const TOTAL_METRICS: Record<string, string> = {
   sessions: "ga4.sessions",
@@ -63,6 +72,24 @@ export function batchRequestBody(startDate = "42daysAgo") {
       { dateRanges: range, dimensions: [{ name: "date" }, { name: "sessionDefaultChannelGroup" }], metrics: [{ name: "sessions" }], limit: 10000 },
       { dateRanges: range, dimensions: [{ name: "date" }, { name: "pagePath" }], metrics: [{ name: "screenPageViews" }], limit: 100000 },
       { dateRanges: range, dimensions: [{ name: "date" }, { name: "eventName" }], metrics: [{ name: "eventCount" }], limit: 10000 },
+    ],
+  };
+}
+
+/**
+ * Search Console clicks, impressions and position by landing page, read through the main-site
+ * property's Search Console link. Sent as its own Zap request for 552676870 only: properties
+ * without a link reject these metrics, which would fail the whole batch.
+ */
+export function searchConsoleRequestBody(startDate = "42daysAgo") {
+  return {
+    requests: [
+      {
+        dateRanges: [{ startDate, endDate: "yesterday" }],
+        dimensions: [{ name: "date" }, { name: "landingPage" }],
+        metrics: [{ name: "organicGoogleSearchClicks" }, { name: "organicGoogleSearchImpressions" }, { name: "organicGoogleSearchAveragePosition" }],
+        limit: 100000,
+      },
     ],
   };
 }
@@ -178,6 +205,22 @@ export function parseGa4(
       } else if (shape === "pagePath" && mets.includes("screenPageViews")) {
         if (COURSE_PAGE.test(second)) add("ga4.course_page_views", date, dim(), val("screenPageViews"));
         if (CHECKOUT_PAGE.test(second)) add("ga4.checkout_views", date, dim(), val("screenPageViews"));
+      } else if (shape === "landingPage" && mets.includes("organicGoogleSearchImpressions")) {
+        // Position is stored impression-weighted so derived averages are exact over any window.
+        const clicks = val("organicGoogleSearchClicks");
+        const impressions = val("organicGoogleSearchImpressions");
+        const weight = val("organicGoogleSearchAveragePosition") * impressions;
+        const course = SEARCH_COURSE_PAGE.test(second);
+        for (const d of [dim(), dim(`page:${second}`)]) {
+          add("gsc.clicks", date, d, clicks);
+          add("gsc.impressions", date, d, impressions);
+          add("gsc.position_weight", date, d, weight);
+        }
+        if (course) {
+          add("gsc.course_clicks", date, dim(), clicks);
+          add("gsc.course_impressions", date, dim(), impressions);
+          add("gsc.course_position_weight", date, dim(), weight);
+        }
       } else if (shape === "eventName" && mets.includes("eventCount")) {
         const key = EVENT_METRICS[second];
         if (key) add(key, date, dim(), val("eventCount"));
