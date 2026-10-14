@@ -7,8 +7,10 @@ import { db } from "@/lib/supabase/server";
 import type { Metric, Source } from "@/lib/types";
 import type { StrategyDoc } from "@/lib/strategy/confluence";
 import { RefreshDocsButton } from "@/components/refresh-docs-button";
+import { PullHubSpotButton } from "@/components/pull-hubspot-button";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 300; // "Pull now" runs the HubSpot pull on this route (first pull backfills 42 days)
 
 export default async function MetricsPage() {
   const header = (
@@ -42,6 +44,11 @@ export default async function MetricsPage() {
                 {s.last_synced_at ? `last data ${formatDistanceToNow(parseISO(s.last_synced_at), { addSuffix: true })}` : "no data yet"}
               </p>
               {s.last_error && <p className="mt-1 rounded bg-bad/15 px-2 py-1 text-primary">{s.last_error}</p>}
+              {s.id === "hubspot" && (
+                <div className="mt-2">
+                  <PullHubSpotButton />
+                </div>
+              )}
             </div>
           ))}
         </div>

@@ -14,10 +14,13 @@ export const env = {
   jiraBaseUrl: process.env.JIRA_BASE_URL || process.env.CONFLUENCE_BASE_URL || "https://scrumcraft.atlassian.net",
   jiraEmail: process.env.JIRA_EMAIL || process.env.CONFLUENCE_EMAIL || "",
   jiraApiToken: process.env.JIRA_API_TOKEN || process.env.CONFLUENCE_API_TOKEN || "",
+  // HubSpot private app (Legacy Apps), read-only scopes. Set in Vercel only.
+  hubspotAccessToken: process.env.HUBSPOT_ACCESS_TOKEN ?? "",
 };
 
 export const isConfluenceConfigured = () => Boolean(env.confluenceEmail && env.confluenceApiToken);
 export const isJiraConfigured = () => Boolean(env.jiraEmail && env.jiraApiToken);
+export const isHubSpotConfigured = () => Boolean(env.hubspotAccessToken);
 
 export const isSupabaseConfigured = () => Boolean(env.supabaseUrl && env.supabaseSecretKey);
 export const isAnthropicConfigured = () => Boolean(env.anthropicApiKey);

@@ -4,7 +4,8 @@ import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/supabase/server";
-import { isConfluenceConfigured, isJiraConfigured, isSupabaseConfigured } from "@/lib/env";
+import { isConfluenceConfigured, isHubSpotConfigured, isJiraConfigured, isSupabaseConfigured } from "@/lib/env";
+import { pullHubSpot } from "@/lib/ingest/hubspot-pull";
 import { runLoop } from "@/lib/loop/run";
 import { refreshStrategyDocs } from "@/lib/strategy/confluence";
 import { createExperimentStory, transitionTo } from "@/lib/jira/client";
@@ -30,6 +31,16 @@ export async function refreshStrategyDocsNow() {
   } catch (err) {
     return { ok: false as const, error: err instanceof Error ? err.message : String(err) };
   }
+}
+
+export async function pullHubSpotNow() {
+  if (!isSupabaseConfigured()) return { ok: false as const, error: "Supabase is not configured yet" };
+  if (!isHubSpotConfigured()) return { ok: false as const, error: "Add HUBSPOT_ACCESS_TOKEN to the Vercel project first" };
+  const res = await pullHubSpot();
+  revalidatePath("/", "layout");
+  return res.ok
+    ? { ok: true as const, stored: res.stored, days: res.days, warnings: res.warnings }
+    : { ok: false as const, error: res.error ?? "HubSpot pull failed" };
 }
 
 const Status = z.enum(["proposed", "approved", "running", "checking", "adopted", "adapted", "abandoned", "rejected", "done"]);

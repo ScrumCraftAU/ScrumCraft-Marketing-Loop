@@ -1,7 +1,8 @@
 import "server-only";
 import { addDays, format, parseISO, subMinutes } from "date-fns";
 import { db } from "@/lib/supabase/server";
-import { isAnthropicConfigured } from "@/lib/env";
+import { isAnthropicConfigured, isHubSpotConfigured } from "@/lib/env";
+import { pullHubSpot } from "@/lib/ingest/hubspot-pull";
 import { computeStats } from "@/lib/metrics/stats";
 import { computeSiteStats } from "@/lib/metrics/sites";
 import { loadStrategyDocs } from "@/lib/strategy/confluence";
@@ -36,6 +37,10 @@ export async function runLoop({ trigger, triggeredBy }: RunOptions) {
   if (inFlight?.length) {
     return { ok: false as const, error: "A loop run is already in progress", runId: inFlight[0].id as string };
   }
+
+  // Refresh pulled sources before computing stats. A failed pull is recorded on the source
+  // (and in raw_events) but never stops the loop.
+  if (isHubSpotConfigured()) await pullHubSpot().catch(() => undefined);
 
   const stats = await computeStats();
   const { data: run, error: runErr } = await supabase
