@@ -16,11 +16,14 @@ export const env = {
   jiraApiToken: process.env.JIRA_API_TOKEN || process.env.CONFLUENCE_API_TOKEN || "",
   // HubSpot private app (Legacy Apps), read-only scopes. Set in Vercel only.
   hubspotAccessToken: process.env.HUBSPOT_ACCESS_TOKEN ?? "",
+  // Ticket Tailor API key (Box Office settings > API). Set in Vercel only.
+  ticketTailorApiKey: process.env.TICKET_TAILOR_API_KEY ?? "",
 };
 
 export const isConfluenceConfigured = () => Boolean(env.confluenceEmail && env.confluenceApiToken);
 export const isJiraConfigured = () => Boolean(env.jiraEmail && env.jiraApiToken);
 export const isHubSpotConfigured = () => Boolean(env.hubspotAccessToken);
+export const isTicketTailorConfigured = () => Boolean(env.ticketTailorApiKey);
 
 export const isSupabaseConfigured = () => Boolean(env.supabaseUrl && env.supabaseSecretKey);
 export const isAnthropicConfigured = () => Boolean(env.anthropicApiKey);

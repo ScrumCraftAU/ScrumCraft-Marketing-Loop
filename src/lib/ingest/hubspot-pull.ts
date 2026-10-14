@@ -1,8 +1,9 @@
 import "server-only";
-import { db } from "@/lib/supabase/server";
 import { env, isHubSpotConfigured } from "@/lib/env";
 import type { Observation } from "./ga4";
-import { adelaideDay, adelaideMidnight, countByDay, lastDays, parseEmailHistogram, sumByDay } from "./hubspot";
+import { adelaideDay, adelaideMidnight, lastDays } from "./days";
+import { countByDay, parseEmailHistogram, sumByDay } from "./hubspot";
+import { defaultDayCount, recordPullError, storePull } from "./store";
 
 const API = "https://api.hubapi.com";
 const SEARCH_PAGE = 200;
@@ -68,15 +69,8 @@ async function countOnly(object: string, filters: Filter[]) {
  * (a deal's close date, a lifecycle backfill) are picked up on later runs.
  */
 export async function pullHubSpot(dayCount?: number): Promise<{ ok: boolean; stored: number; days: number; warnings: string[]; error?: string }> {
-  const supabase = db();
   if (!isHubSpotConfigured()) return { ok: false, stored: 0, days: 0, warnings: [], error: "HUBSPOT_ACCESS_TOKEN is not set" };
-
-  // First pull backfills the dashboard's 5-week baseline; later pulls refresh the last fortnight.
-  if (!dayCount) {
-    const { count } = await supabase.from("metric_observations").select("id", { count: "exact", head: true }).like("metric_key", "hubspot.%");
-    dayCount = count ? 14 : 42;
-  }
-  const days = lastDays(dayCount);
+  const days = lastDays(dayCount ?? (await defaultDayCount("hubspot")));
   const from = adelaideMidnight(days[0]);
   const to = adelaideMidnight(adelaideDay(adelaideMidnight(days[days.length - 1]) + 36 * 3_600_000)!); // midnight after the last day
   const warnings: string[] = [];
@@ -126,24 +120,11 @@ export async function pullHubSpot(dayCount?: number): Promise<{ ok: boolean; sto
       warnings.push(`marketing email stats: ${err instanceof Error ? err.message : String(err)}`);
     }
 
-    // Keep only metrics the catalogue knows (the FK would reject the rest).
-    const { data: known } = await supabase.from("metrics").select("key").like("key", "hubspot.%");
-    const keys = new Set((known ?? []).map((m) => m.key as string));
-    const rows = observations.filter((o) => keys.has(o.metric_key));
-    for (const missing of new Set(observations.filter((o) => !keys.has(o.metric_key)).map((o) => o.metric_key))) warnings.push(`metric '${missing}' not in catalogue`);
-
-    for (let i = 0; i < rows.length; i += 1000) {
-      const { error } = await supabase.from("metric_observations").upsert(rows.slice(i, i + 1000), { onConflict: "metric_key,date,dimension" });
-      if (error) throw new Error(`storing observations: ${error.message}`);
-    }
-    const now = new Date().toISOString();
-    await supabase.from("raw_events").insert({ source_id: "hubspot", payload: { ...raw, warnings }, processed_at: now, error: warnings.length ? warnings.join("; ") : null });
-    await supabase.from("sources").update({ enabled: true, last_synced_at: now, last_error: warnings.length ? warnings.join("; ") : null }).eq("id", "hubspot");
-    return { ok: true, stored: rows.length, days: days.length, warnings };
+    const stored = await storePull("hubspot", observations, raw, warnings);
+    return { ok: true, stored, days: days.length, warnings };
   } catch (err) {
     const error = err instanceof Error ? err.message : String(err);
-    await supabase.from("raw_events").insert({ source_id: "hubspot", payload: { ...raw, warnings }, error });
-    await supabase.from("sources").update({ last_error: error }).eq("id", "hubspot");
+    await recordPullError("hubspot", raw, warnings, error);
     return { ok: false, stored: 0, days: days.length, warnings, error };
   }
 }

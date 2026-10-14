@@ -4,8 +4,9 @@ import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/supabase/server";
-import { isConfluenceConfigured, isHubSpotConfigured, isJiraConfigured, isSupabaseConfigured } from "@/lib/env";
+import { isConfluenceConfigured, isHubSpotConfigured, isJiraConfigured, isSupabaseConfigured, isTicketTailorConfigured } from "@/lib/env";
 import { pullHubSpot } from "@/lib/ingest/hubspot-pull";
+import { pullTicketTailor } from "@/lib/ingest/ticket-tailor-pull";
 import { runLoop } from "@/lib/loop/run";
 import { refreshStrategyDocs } from "@/lib/strategy/confluence";
 import { createExperimentStory, transitionTo } from "@/lib/jira/client";
@@ -33,14 +34,22 @@ export async function refreshStrategyDocsNow() {
   }
 }
 
-export async function pullHubSpotNow() {
+/** Sources pulled by the app itself (not pushed by Zapier), with their "Pull now" handler. */
+const PULLS = {
+  hubspot: { configured: isHubSpotConfigured, envVar: "HUBSPOT_ACCESS_TOKEN", pull: () => pullHubSpot() },
+  ticket_tailor: { configured: isTicketTailorConfigured, envVar: "TICKET_TAILOR_API_KEY", pull: () => pullTicketTailor() },
+} as const;
+export type PulledSource = keyof typeof PULLS;
+
+export async function pullSourceNow(source: PulledSource) {
   if (!isSupabaseConfigured()) return { ok: false as const, error: "Supabase is not configured yet" };
-  if (!isHubSpotConfigured()) return { ok: false as const, error: "Add HUBSPOT_ACCESS_TOKEN to the Vercel project first" };
-  const res = await pullHubSpot();
+  const p = PULLS[z.enum(["hubspot", "ticket_tailor"]).parse(source)];
+  if (!p.configured()) return { ok: false as const, error: `Add ${p.envVar} to the Vercel project first` };
+  const res = await p.pull();
   revalidatePath("/", "layout");
   return res.ok
     ? { ok: true as const, stored: res.stored, days: res.days, warnings: res.warnings }
-    : { ok: false as const, error: res.error ?? "HubSpot pull failed" };
+    : { ok: false as const, error: res.error ?? "Pull failed" };
 }
 
 const Status = z.enum(["proposed", "approved", "running", "checking", "adopted", "adapted", "abandoned", "rejected", "done"]);

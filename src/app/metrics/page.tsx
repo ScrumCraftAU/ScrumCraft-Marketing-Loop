@@ -7,7 +7,7 @@ import { db } from "@/lib/supabase/server";
 import type { Metric, Source } from "@/lib/types";
 import type { StrategyDoc } from "@/lib/strategy/confluence";
 import { RefreshDocsButton } from "@/components/refresh-docs-button";
-import { PullHubSpotButton } from "@/components/pull-hubspot-button";
+import { PullSourceButton } from "@/components/pull-source-button";
 import { FRESH_WINDOW_DAYS, isOnline } from "@/lib/metrics/freshness";
 import { cn } from "@/lib/utils";
 
@@ -47,6 +47,7 @@ export default async function MetricsPage() {
   ]);
   const latest = new Map((freshness ?? []).map((f) => [f.metric_key as string, f.latest_date as string]));
   const today = new Date().toISOString().slice(0, 10);
+  const formulas = new Map(((metrics ?? []) as Metric[]).map((m) => [m.key, m.formula]));
 
   return (
     <div className="space-y-8">
@@ -65,9 +66,9 @@ export default async function MetricsPage() {
                 {s.last_synced_at ? `last data ${formatDistanceToNow(parseISO(s.last_synced_at), { addSuffix: true })}` : "no data yet"}
               </p>
               {s.last_error && <p className="mt-1 rounded bg-bad/15 px-2 py-1 text-primary">{s.last_error}</p>}
-              {s.id === "hubspot" && (
+              {(s.id === "hubspot" || s.id === "ticket_tailor") && (
                 <div className="mt-2">
-                  <PullHubSpotButton />
+                  <PullSourceButton source={s.id} label={s.name} />
                 </div>
               )}
             </div>
@@ -120,7 +121,7 @@ export default async function MetricsPage() {
                     {m.description && <p className="text-xs text-muted-foreground">{m.description}</p>}
                   </TableCell>
                   <TableCell>
-                    <OnlineLozenge online={isOnline(m, latest, today)} latest={latest.get(m.key)} />
+                    <OnlineLozenge online={isOnline(m, latest, today, formulas)} latest={latest.get(m.key)} />
                   </TableCell>
                   <TableCell className="text-xs">{m.key}</TableCell>
                   <TableCell><Badge variant={m.indicator === "leading" ? "secondary" : "outline"}>{m.indicator}</Badge></TableCell>

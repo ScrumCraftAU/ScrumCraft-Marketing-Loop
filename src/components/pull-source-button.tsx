@@ -4,9 +4,9 @@ import { useTransition } from "react";
 import { Loader2, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { pullHubSpotNow } from "@/app/actions";
+import { pullSourceNow, type PulledSource } from "@/app/actions";
 
-export function PullHubSpotButton() {
+export function PullSourceButton({ source, label }: { source: PulledSource; label: string }) {
   const [pending, start] = useTransition();
   return (
     <Button
@@ -15,10 +15,10 @@ export function PullHubSpotButton() {
       disabled={pending}
       onClick={() =>
         start(async () => {
-          const res = await pullHubSpotNow();
+          const res = await pullSourceNow(source);
           if (!res.ok) toast.error(res.error);
           else if (res.warnings.length) toast.warning(`Stored ${res.stored} values for ${res.days} days; ${res.warnings.join("; ")}`);
-          else toast.success(`Stored ${res.stored} HubSpot values for the last ${res.days} days`);
+          else toast.success(`Stored ${res.stored} ${label} values for the last ${res.days} days`);
         })
       }
     >

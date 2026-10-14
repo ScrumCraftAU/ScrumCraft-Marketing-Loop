@@ -1,8 +1,9 @@
 import "server-only";
 import { addDays, format, parseISO, subMinutes } from "date-fns";
 import { db } from "@/lib/supabase/server";
-import { isAnthropicConfigured, isHubSpotConfigured } from "@/lib/env";
+import { isAnthropicConfigured, isHubSpotConfigured, isTicketTailorConfigured } from "@/lib/env";
 import { pullHubSpot } from "@/lib/ingest/hubspot-pull";
+import { pullTicketTailor } from "@/lib/ingest/ticket-tailor-pull";
 import { computeStats } from "@/lib/metrics/stats";
 import { computeSiteStats } from "@/lib/metrics/sites";
 import { loadStrategyDocs } from "@/lib/strategy/confluence";
@@ -41,6 +42,7 @@ export async function runLoop({ trigger, triggeredBy }: RunOptions) {
   // Refresh pulled sources before computing stats. A failed pull is recorded on the source
   // (and in raw_events) but never stops the loop.
   if (isHubSpotConfigured()) await pullHubSpot().catch(() => undefined);
+  if (isTicketTailorConfigured()) await pullTicketTailor().catch(() => undefined);
 
   const stats = await computeStats();
   const { data: run, error: runErr } = await supabase
