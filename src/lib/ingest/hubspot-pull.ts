@@ -94,10 +94,10 @@ export async function pullHubSpot(dayCount?: number): Promise<{ ok: boolean; sto
     days.forEach((date, i) => observations.push({ metric_key: "hubspot.new_contacts", date, dimension: "", value: perDay[i] }));
     raw.new_contacts = perDay;
 
-    const mqls = await searchAll("contacts", [between("hs_lifecyclestage_marketingqualifiedlead_date", from, to)], ["hs_lifecyclestage_marketingqualifiedlead_date"], warnings);
-    observations.push(...countByDay(mqls, "hs_lifecyclestage_marketingqualifiedlead_date", days, "hubspot.mqls"));
-    const sqls = await searchAll("contacts", [between("hs_lifecyclestage_salesqualifiedlead_date", from, to)], ["hs_lifecyclestage_salesqualifiedlead_date"], warnings);
-    observations.push(...countByDay(sqls, "hs_lifecyclestage_salesqualifiedlead_date", days, "hubspot.sqls"));
+    const mqls = await searchAll("contacts", [between("hs_v2_date_entered_marketingqualifiedlead", from, to)], ["hs_v2_date_entered_marketingqualifiedlead"], warnings);
+    observations.push(...countByDay(mqls, "hs_v2_date_entered_marketingqualifiedlead", days, "hubspot.mqls"));
+    const sqls = await searchAll("contacts", [between("hs_v2_date_entered_salesqualifiedlead", from, to)], ["hs_v2_date_entered_salesqualifiedlead"], warnings);
+    observations.push(...countByDay(sqls, "hs_v2_date_entered_salesqualifiedlead", days, "hubspot.sqls"));
     raw.mqls = mqls.length;
     raw.sqls = sqls.length;
 
