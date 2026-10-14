@@ -8,6 +8,24 @@ import type { Metric, Source } from "@/lib/types";
 import type { StrategyDoc } from "@/lib/strategy/confluence";
 import { RefreshDocsButton } from "@/components/refresh-docs-button";
 import { PullHubSpotButton } from "@/components/pull-hubspot-button";
+import { FRESH_WINDOW_DAYS, isOnline } from "@/lib/metrics/freshness";
+import { cn } from "@/lib/utils";
+
+/** Online: data in the last FRESH_WINDOW_DAYS days (every input, for derived metrics). */
+function OnlineLozenge({ online, latest }: { online: boolean; latest?: string }) {
+  return (
+    <span
+      title={latest ? `Latest data ${latest}` : `No data in the last ${FRESH_WINDOW_DAYS} days`}
+      className={cn(
+        "inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-bold text-primary",
+        online ? "bg-good/25" : "bg-bad/15",
+      )}
+    >
+      <span className={cn("size-1.5 rounded-full", online ? "bg-good" : "bg-bad")} aria-hidden />
+      {online ? "Online" : "Offline"}
+    </span>
+  );
+}
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300; // "Pull now" runs the HubSpot pull on this route (first pull backfills 42 days)
@@ -21,11 +39,14 @@ export default async function MetricsPage() {
   );
   if (!isSupabaseConfigured()) return <div className="space-y-6">{header}<NotConfigured /></div>;
 
-  const [{ data: sources }, { data: metrics }, { data: docs }] = await Promise.all([
+  const [{ data: sources }, { data: metrics }, { data: docs }, { data: freshness }] = await Promise.all([
     db().from("sources").select("*").order("id"),
     db().from("metrics").select("*").order("sort_order"),
     db().from("strategy_docs").select("*").order("sort_order"),
+    db().from("metric_freshness").select("metric_key, latest_date"),
   ]);
+  const latest = new Map((freshness ?? []).map((f) => [f.metric_key as string, f.latest_date as string]));
+  const today = new Date().toISOString().slice(0, 10);
 
   return (
     <div className="space-y-8">
@@ -83,6 +104,7 @@ export default async function MetricsPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Metric</TableHead>
+                <TableHead>Data</TableHead>
                 <TableHead>Key</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>Stage</TableHead>
@@ -96,6 +118,9 @@ export default async function MetricsPage() {
                   <TableCell>
                     <p className="font-medium">{m.name}{m.is_north_star && " ★"}</p>
                     {m.description && <p className="text-xs text-muted-foreground">{m.description}</p>}
+                  </TableCell>
+                  <TableCell>
+                    <OnlineLozenge online={isOnline(m, latest, today)} latest={latest.get(m.key)} />
                   </TableCell>
                   <TableCell className="text-xs">{m.key}</TableCell>
                   <TableCell><Badge variant={m.indicator === "leading" ? "secondary" : "outline"}>{m.indicator}</Badge></TableCell>
