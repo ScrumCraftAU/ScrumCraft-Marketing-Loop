@@ -111,11 +111,12 @@ test("Search Console clicks, impressions and weighted position by landing page",
     metricValues: [{ value: String(clicks) }, { value: String(impressions) }, { value: String(position) }],
   });
   const report = {
-    dimensionHeaders: [{ name: "date" }, { name: "landingPage" }],
+    dimensionHeaders: [{ name: "date" }, { name: "landingPagePlusQueryString" }],
     metricHeaders: [{ name: "organicGoogleSearchClicks" }, { name: "organicGoogleSearchImpressions" }, { name: "organicGoogleSearchAveragePosition" }],
     rows: [
       row("20261005", "/", 2, 10, 3),
-      row("20261005", "/scrumatscale/", 0, 20, 17.5),
+      row("20261005", "/scrumatscale/", 0, 15, 17.5),
+      row("20261005", "/scrumatscale/?utm_source=newsletter", 0, 5, 17.5),
       row("20261005", "/become-a-registered-scrum-trainer-rst/", 1, 10, 9),
     ],
   };

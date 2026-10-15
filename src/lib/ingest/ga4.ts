@@ -8,7 +8,7 @@
  *   [date, sessionDefaultChannelGroup]  sessions        → channel breakdown + organic
  *   [date, pagePath]                    screenPageViews → course / checkout page views
  *   [date, eventName]                   eventCount      → conversion events
- *   [date, landingPage]                 organicGoogleSearch* → Search Console (main site only)
+ *   [date, landingPagePlusQueryString]  organicGoogleSearch* → Search Console (main site only)
  *
  * Kept dependency-free so it can be unit-tested with plain `node --test`.
  */
@@ -86,7 +86,7 @@ export function searchConsoleRequestBody(startDate = "42daysAgo") {
     requests: [
       {
         dateRanges: [{ startDate, endDate: "yesterday" }],
-        dimensions: [{ name: "date" }, { name: "landingPage" }],
+        dimensions: [{ name: "date" }, { name: "landingPagePlusQueryString" }],
         metrics: [{ name: "organicGoogleSearchClicks" }, { name: "organicGoogleSearchImpressions" }, { name: "organicGoogleSearchAveragePosition" }],
         limit: 100000,
       },
@@ -149,6 +149,12 @@ function tryParse(s: string): unknown {
   }
 }
 
+/** "/scrumatscale/?utm_source=x" or "https://scrumcraft.com/scrumatscale/#faq" → "/scrumatscale/". */
+export function landingPath(page: string): string {
+  const path = page.replace(/^https?:\/\/[^/]+/i, "").replace(/[?#].*$/, "");
+  return path || "/";
+}
+
 const isoDate = (d: string) => `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`;
 
 /**
@@ -205,13 +211,15 @@ export function parseGa4(
       } else if (shape === "pagePath" && mets.includes("screenPageViews")) {
         if (COURSE_PAGE.test(second)) add("ga4.course_page_views", date, dim(), val("screenPageViews"));
         if (CHECKOUT_PAGE.test(second)) add("ga4.checkout_views", date, dim(), val("screenPageViews"));
-      } else if (shape === "landingPage" && mets.includes("organicGoogleSearchImpressions")) {
+      } else if ((shape === "landingPagePlusQueryString" || shape === "landingPage") && mets.includes("organicGoogleSearchImpressions")) {
         // Position is stored impression-weighted so derived averages are exact over any window.
         const clicks = val("organicGoogleSearchClicks");
         const impressions = val("organicGoogleSearchImpressions");
         const weight = val("organicGoogleSearchAveragePosition") * impressions;
-        const course = SEARCH_COURSE_PAGE.test(second);
-        for (const d of [dim(), dim(`page:${second}`)]) {
+        // GA4 only pairs Search Console metrics with the query-string landing page; group by path.
+        const path = landingPath(second);
+        const course = SEARCH_COURSE_PAGE.test(path);
+        for (const d of [dim(), dim(`page:${path}`)]) {
           add("gsc.clicks", date, d, clicks);
           add("gsc.impressions", date, d, impressions);
           add("gsc.position_weight", date, d, weight);
