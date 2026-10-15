@@ -4,6 +4,7 @@ import { z } from "zod";
 import { db } from "@/lib/supabase/server";
 import { env, isSupabaseConfigured } from "@/lib/env";
 import { extractReports, findZapierFileLink, parseGa4, type Observation } from "@/lib/ingest/ga4";
+import { adelaideDay } from "@/lib/ingest/days";
 
 export const maxDuration = 60;
 
@@ -162,7 +163,7 @@ export async function POST(req: Request, ctx: RouteContext<"/api/ingest/[source]
         );
       }
       const report = extractReports(payload) ? payload : await fetchHydratedReport(payload, raw.id);
-      result = parseGa4(report, property.site, { bookingSite: property.booking_site === true });
+      result = parseGa4(report, property.site, { bookingSite: property.booking_site === true, today: adelaideDay(Date.now())! });
       if (!result.observations.length && result.warnings.length) throw new IngestError(result.warnings.join("; "));
       result.observations = result.observations.filter((o) => keys.has(o.metric_key));
     } else {

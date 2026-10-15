@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { COURSE_PAGE, CHECKOUT_PAGE, extractReports, findZapierFileLink, parseGa4 } from "./ga4.ts";
+import { COURSE_PAGE, CHECKOUT_PAGE, extractReports, findZapierFileLink, landingPath, parseGa4, relativeDay, searchConsoleRequestBody } from "./ga4.ts";
 
 // Real batchRunReports output for www.scrumcraft.com (25–26 Sep 2026), as Zapier returns it.
 const fixture = JSON.parse(readFileSync(new URL("./fixtures/ga4-batch.json", import.meta.url), "utf8"));
@@ -106,22 +106,26 @@ test("booking site rolls checkout views and purchases into main-site totals", ()
 });
 
 test("Search Console clicks, impressions and weighted position by landing page", () => {
-  const row = (date: string, page: string, clicks: number, impressions: number, position: number) => ({
-    dimensionValues: [{ value: date }, { value: page }],
+  // GA4 won't pair Search Console metrics with `date`: each day is a named range ("NdaysAgo").
+  const row = (page: string, range: string, clicks: number, impressions: number, position: number) => ({
+    dimensionValues: [{ value: page }, { value: range }],
     metricValues: [{ value: String(clicks) }, { value: String(impressions) }, { value: String(position) }],
   });
   const report = {
-    dimensionHeaders: [{ name: "date" }, { name: "landingPagePlusQueryString" }],
+    dimensionHeaders: [{ name: "landingPagePlusQueryString" }, { name: "dateRange" }],
     metricHeaders: [{ name: "organicGoogleSearchClicks" }, { name: "organicGoogleSearchImpressions" }, { name: "organicGoogleSearchAveragePosition" }],
     rows: [
-      row("20261005", "/", 2, 10, 3),
-      row("20261005", "/scrumatscale/", 0, 15, 17.5),
-      row("20261005", "/scrumatscale/?utm_source=newsletter", 0, 5, 17.5),
-      row("20261005", "/become-a-registered-scrum-trainer-rst/", 1, 10, 9),
+      row("/", "2daysAgo", 2, 10, 3),
+      row("/scrumatscale/", "2daysAgo", 0, 15, 17.5),
+      row("/scrumatscale/?utm_source=newsletter", "2daysAgo", 0, 5, 17.5),
+      row("/become-a-registered-scrum-trainer-rst/", "2daysAgo", 1, 10, 9),
+      row("/", "3daysAgo", 4, 12, 2),
     ],
   };
-  const { observations: obs, warnings } = parseGa4({ reports: [report] }, null);
+  const { observations: obs, warnings } = parseGa4({ reports: [report] }, null, { today: "2026-10-07" });
   assert.deepEqual(warnings, []);
+  assert.equal(find(obs, "gsc.clicks", "2026-10-04"), 4);
+  assert.deepEqual(parseGa4({ reports: [report] }, null).observations, []); // needs today's date
   assert.equal(find(obs, "gsc.clicks", "2026-10-05"), 3);
   assert.equal(find(obs, "gsc.impressions", "2026-10-05"), 40);
   assert.equal(find(obs, "gsc.position_weight", "2026-10-05"), 30 + 350 + 90);
@@ -132,4 +136,14 @@ test("Search Console clicks, impressions and weighted position by landing page",
   assert.equal(find(obs, "gsc.position_weight", "2026-10-05", "page:/scrumatscale/"), 350);
   // No zero-filling: Search Console lags GA4 by a few days, so missing days aren't zeros.
   assert.equal(find(obs, "ga4.organic_sessions", "2026-10-05"), undefined);
+});
+
+test("named date ranges resolve against the property's today, and the request covers 20 days", () => {
+  assert.equal(relativeDay("2daysAgo", "2026-10-01"), "2026-09-29");
+  assert.equal(relativeDay("yesterday", "2026-10-01"), "2026-09-30");
+  assert.equal(relativeDay("date_range_0", "2026-10-01"), null);
+  assert.equal(landingPath("https://scrumcraft.com/training/?a=1#x"), "/training/");
+  const names = searchConsoleRequestBody().requests.flatMap((r) => r.dateRanges.map((d) => d.name));
+  assert.equal(names.length, 20);
+  assert.deepEqual([names[0], names[19]], ["2daysAgo", "21daysAgo"]);
 });

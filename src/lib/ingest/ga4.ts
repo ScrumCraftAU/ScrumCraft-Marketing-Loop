@@ -80,17 +80,22 @@ export function batchRequestBody(startDate = "42daysAgo") {
  * Search Console clicks, impressions and position by landing page, read through the main-site
  * property's Search Console link. Sent as its own Zap request for 552676870 only: properties
  * without a link reject these metrics, which would fail the whole batch.
+ *
+ * GA4 won't pair these metrics with `date` (or `landingPage`), so each day is its own named
+ * date range ("2daysAgo"…), returned in the `dateRange` dimension. The API allows 4 ranges per
+ * request and 5 requests per batch: 20 days, starting 2 days back as Search Console lags ~48h.
  */
-export function searchConsoleRequestBody(startDate = "42daysAgo") {
+export function searchConsoleRequestBody(firstDaysAgo = 2) {
   return {
-    requests: [
-      {
-        dateRanges: [{ startDate, endDate: "yesterday" }],
-        dimensions: [{ name: "date" }, { name: "landingPagePlusQueryString" }],
-        metrics: [{ name: "organicGoogleSearchClicks" }, { name: "organicGoogleSearchImpressions" }, { name: "organicGoogleSearchAveragePosition" }],
-        limit: 100000,
-      },
-    ],
+    requests: Array.from({ length: 5 }, (_, r) => ({
+      dateRanges: Array.from({ length: 4 }, (_, i) => {
+        const day = `${firstDaysAgo + r * 4 + i}daysAgo`;
+        return { startDate: day, endDate: day, name: day };
+      }),
+      dimensions: [{ name: "landingPagePlusQueryString" }],
+      metrics: [{ name: "organicGoogleSearchClicks" }, { name: "organicGoogleSearchImpressions" }, { name: "organicGoogleSearchAveragePosition" }],
+      limit: 100000,
+    })),
   };
 }
 
@@ -157,16 +162,26 @@ export function landingPath(page: string): string {
 
 const isoDate = (d: string) => `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`;
 
+/** A named date range ("today", "yesterday", "3daysAgo") as yyyy-mm-dd, relative to `today`. */
+export function relativeDay(name: string, today: string): string | null {
+  const n = name === "today" ? 0 : name === "yesterday" ? 1 : Number(/^(\d+)daysAgo$/.exec(name)?.[1] ?? NaN);
+  if (!Number.isInteger(n)) return null;
+  const d = new Date(`${today}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - n);
+  return d.toISOString().slice(0, 10);
+}
+
 /**
  * @param siteKey null for the main site (stored as the total, dimension ''); otherwise
  *                observations are stored under dimension `site:<key>`.
  * @param opts.bookingSite also roll this site's checkout views and purchases into the
  *                main-site totals (see BOOKING_ROLLUP).
+ * @param opts.today the property's current day (Adelaide), for named "NdaysAgo" date ranges.
  */
 export function parseGa4(
   payload: unknown,
   siteKey: string | null,
-  opts: { bookingSite?: boolean } = {},
+  opts: { bookingSite?: boolean; today?: string } = {},
 ): { observations: Observation[]; warnings: string[] } {
   const reports = extractReports(payload);
   if (!reports) return { observations: [], warnings: ["no GA4 reports found in payload"] };
@@ -190,15 +205,29 @@ export function parseGa4(
     if (report.rowCount && report.rowCount > rows.length) {
       warnings.push(`report [${dims.join(",")}] truncated: ${rows.length}/${report.rowCount} rows`);
     }
-    if (dims[0] !== "date") {
-      warnings.push(`skipped report without a leading date dimension: [${dims.join(",")}]`);
+    // Each row's day comes from a leading `date` dimension or, for Search Console, a named
+    // `dateRange` (GA4 adds it to the headers and to the end of each row's values).
+    let rangeAt = dims.indexOf("dateRange");
+    if (rangeAt < 0 && dims[0] !== "date" && rows[0]?.dimensionValues.length === dims.length + 1) rangeAt = dims.length;
+    const others = dims.filter((d, i) => i !== rangeAt && !(i === 0 && d === "date"));
+    if (dims[0] !== "date" && rangeAt < 0) {
+      warnings.push(`skipped report without a date or dateRange dimension: [${dims.join(",")}]`);
       continue;
     }
-    const shape = dims.slice(1).join(",");
+    if (rangeAt >= 0 && !opts.today) {
+      warnings.push(`skipped report [${dims.join(",")}]: named date ranges need today's date`);
+      continue;
+    }
+    const shape = others.join(",");
+    const otherAt = dims.indexOf(others[0]);
 
     for (const row of rows) {
-      const date = isoDate(row.dimensionValues[0].value);
-      const second = row.dimensionValues[1]?.value ?? "";
+      const date = rangeAt >= 0 ? relativeDay(row.dimensionValues[rangeAt].value, opts.today!) : isoDate(row.dimensionValues[0].value);
+      if (!date) {
+        warnings.push(`skipped rows with unrecognised date range "${row.dimensionValues[rangeAt]?.value}"`);
+        break;
+      }
+      const second = (otherAt >= 0 ? row.dimensionValues[otherAt]?.value : "") ?? "";
       const val = (metric: string) => Number(row.metricValues[mets.indexOf(metric)]?.value);
 
       if (shape === "") {
