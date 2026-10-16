@@ -60,17 +60,22 @@ Derived metrics (`paid.spend`, `paid.cost_per_booking`, `paid.roas`, …) are **
 | Awareness | New users | `ga4.new_users` | GA4 |
 | Awareness | LinkedIn impressions | `linkedin_ads.impressions` | LinkedIn Ads |
 | Awareness | Meta impressions | `meta_ads.impressions` | Meta Ads |
-| Awareness | Keywords in top 10 | `seo.keywords_top10` | SEO |
-| Awareness | Avg. tracked position (lower is better) | `seo.avg_position` | SEO |
+| Awareness | Search clicks / impressions | `gsc.clicks`, `gsc.impressions` | Search Console (via GA4) |
+| Awareness | Search CTR / avg. position (lower is better) | `gsc.ctr`, `gsc.avg_position` | derived |
+| Awareness | Course page search clicks / impressions / position | `gsc.course_clicks`, `gsc.course_impressions`, `gsc.course_avg_position` | Search Console / derived |
 | Engagement | Engagement rate | `ga4.engagement_rate` | GA4 |
 | Engagement | Course page views | `ga4.course_page_views` | GA4 |
 | Engagement | LinkedIn clicks / Meta clicks | `linkedin_ads.clicks`, `meta_ads.clicks` | Ads |
-| Engagement | Email click rate | `hubspot.email_click_rate` | HubSpot |
+| Engagement | Marketing emails sent / opens / clicks | `hubspot.emails_sent`, `hubspot.email_opens`, `hubspot.email_clicks` | HubSpot |
+| Engagement | Email open rate / click rate | `hubspot.email_open_rate`, `hubspot.email_click_rate` | derived |
 | Engagement | Paid CTR (blended) | `paid.ctr` | derived |
 | Conversion | Form submissions | `ga4.form_submits` | GA4 |
 | Conversion | Checkout page views | `ga4.checkout_views` | GA4 |
 | Conversion | New contacts | `hubspot.new_contacts` | HubSpot |
-| Conversion | MQLs | `hubspot.mqls` | HubSpot |
+| Conversion | MQLs (target ≥ 30 a quarter) | `hubspot.mqls` | HubSpot |
+| Conversion | MQL-to-SQL rate (target 25%) | `hubspot.mql_to_sql_rate` | derived |
+| Conversion | Academy enrolments (new LearnWorlds learners, by course) | `hubspot.academy_enrolments` | HubSpot |
+| Conversion | Free course sign-ups | `ticket_tailor.free_signups` | Ticket Tailor |
 | Conversion | LinkedIn lead-gen leads | `linkedin_ads.leads` | LinkedIn Ads |
 
 ### Lagging indicators: the outcomes
@@ -80,22 +85,33 @@ Derived metrics (`paid.spend`, `paid.cost_per_booking`, `paid.roas`, …) are **
 | Conversion | Course bookings (orders) | `ticket_tailor.orders` | Ticket Tailor |
 | Conversion | Seats sold | `ticket_tailor.tickets` | Ticket Tailor |
 | Conversion | Upcoming course fill rate | `ticket_tailor.fill_rate` | Ticket Tailor |
+| Conversion | Checkout-to-booking rate | `checkout.conversion` | derived |
 | Revenue | Booking revenue | `ticket_tailor.revenue` | Ticket Tailor |
-| Revenue | Deals created | `hubspot.deals_created` | HubSpot |
+| Revenue | Deals created / deals won | `hubspot.deals_created`, `hubspot.deals_won` | HubSpot |
 | Revenue | Closed-won revenue | `hubspot.won_revenue` | HubSpot |
-| Revenue | ★ Marketing-sourced revenue | `marketing.revenue` | derived |
+| Revenue | ★ Marketing-sourced revenue (target $1.2m a year, $100k a month) | `marketing.revenue` | derived |
 | Revenue | LinkedIn / Meta / total paid spend | `linkedin_ads.spend`, `meta_ads.spend`, `paid.spend` | Ads / derived |
 | Revenue | Cost per lead | `paid.cost_per_lead` | derived |
 | Revenue | Cost per booking | `paid.cost_per_booking` | derived |
 | Revenue | ROAS | `paid.roas` | derived |
+
+Retired: `seo.keywords_top10` and `seo.avg_position` (Semrush, replaced by `gsc.*` on 13 Oct 2026; Semrush is kept for research only).
+
+### Definitions and targets
+
+Funnel stages (Subscriber → Lead → MQL → SQL → Opportunity → Customer), the MQL rule and the deal stages are defined in Confluence: **Lead & Deal Stage Definitions** (STS page 633274369, owner Operations, changes approved by Jason at the weekly Marketing Measurement Review). Company and product targets live on the **Operations Role Comparison Map** (page 290357264) and strategic goals in Jira Goals. Only the marketing-funnel targets are stored here (`metrics.target_value`, migration 0015). When a HubSpot definition changes, update the matching metric in the same change.
 
 ## Ingesting data (Zapier and other push sources)
 
 **GA4** is one daily Zap that forwards raw GA4 reports for 7 properties. Setup: [docs/ga4-zap.md](docs/ga4-zap.md).
 The main site (www.scrumcraft.com) feeds the dashboard totals, and the other properties are stored under
 `site:<name>` dimensions and shown in the Web properties table. Search Console clicks, impressions and position
-arrive through the same Zap (a branch for the main property only) as `gsc.*` metrics. Other sources use the
-generic format below.
+arrive through the same Zap (a branch for the main property only) as `gsc.*` metrics. GA4 rejects Search Console
+metrics with `date`, so that request asks for 20 named single-day ranges (`2daysAgo`…`21daysAgo`).
+
+**HubSpot** and **Ticket Tailor** are pulled by the app itself at the start of each daily loop run (and by "Pull now" on
+Metrics & sources), using `HUBSPOT_ACCESS_TOKEN` and `TICKET_TAILOR_API_KEY`. Days are Adelaide days; the first pull
+backfills 42 days, later pulls refresh the last 14. Other sources use the generic format below.
 
 ```
 POST /api/ingest/<source>            # source = ga4 | linkedin_ads | meta_ads | hubspot | ticket_tailor | seo
@@ -124,8 +140,9 @@ With no Supabase env set, every page renders a "not connected" state.
 
 1. Supabase project + apply migration; Vercel project linked to this repo with SSO + env vars
 2. Wire GA4 via Zapier → `/api/ingest/ga4`
-3. HubSpot + Ticket Tailor pulls (scheduled route handlers → same observation table)
+3. ✅ HubSpot + Ticket Tailor pulls (run at the start of each daily loop → same observation table)
 4. LinkedIn / Meta ads via Zapier; SEO via Search Console through the GA4 link (`gsc.*`). Semrush is kept
    for competitor and keyword research only, not as a feed
 5. Schedule the daily loop (Vercel Cron) and add a morning digest (email/Teams)
-6. Set targets per metric so the loop can report target gaps
+6. ✅ Funnel targets set (MQLs, MQL-to-SQL, revenue); still to add: win rate and pipeline coverage (need closed-lost and open deal value in the HubSpot pull)
+7. Attribute visits and enrolments to the page and button that sent them (GA4 UTM report, SCM-204)
