@@ -19,6 +19,25 @@ export function countByDay(records: { properties: Record<string, string | null |
   return [...counts].map(([date, value]) => ({ metric_key, date, dimension: "", value }));
 }
 
+/**
+ * Counts records per Adelaide day of `dateProp` and per value of `dimProp`, stored under dimension
+ * `<prefix>:<value>` (lower-cased). Only non-zero days are returned; the total comes from countByDay.
+ */
+export function countByDayAndDimension(records: { properties: Record<string, string | null | undefined> }[], dateProp: string, dimProp: string, days: string[], metric_key: string, prefix: string): Observation[] {
+  const wanted = new Set(days);
+  const counts = new Map<string, Observation>();
+  for (const r of records) {
+    const day = r.properties[dateProp] ? adelaideDay(r.properties[dateProp]!) : null;
+    if (!day || !wanted.has(day)) continue;
+    const dimension = `${prefix}:${(r.properties[dimProp] ?? "unknown").trim().toLowerCase() || "unknown"}`;
+    const k = `${day}\u0000${dimension}`;
+    const cur = counts.get(k);
+    if (cur) cur.value += 1;
+    else counts.set(k, { metric_key, date: day, dimension, value: 1 });
+  }
+  return [...counts.values()];
+}
+
 /** Sums a numeric property per Adelaide day of `dateProp`, only for `days`, with zero-filled gaps. */
 export function sumByDay(records: { properties: Record<string, string | null | undefined> }[], dateProp: string, valueProp: string, days: string[], metric_key: string): Observation[] {
   const sums = new Map(days.map((d) => [d, 0]));

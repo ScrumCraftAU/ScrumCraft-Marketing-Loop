@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { adelaideDay, adelaideMidnight, countByDay, lastDays, parseEmailHistogram, sumByDay } from "./hubspot.ts";
+import { adelaideDay, adelaideMidnight, countByDay, countByDayAndDimension, lastDays, parseEmailHistogram, sumByDay } from "./hubspot.ts";
 
 test("Adelaide days and midnights, either side of daylight saving", () => {
   // 13 Oct 2026 is daylight time (UTC+10:30): midnight is 13:30 UTC the day before.
@@ -43,4 +43,19 @@ test("email histogram parses counters and zero-fills missing days", () => {
   assert.equal(v("hubspot.email_clicks", "2026-10-13"), 6);
   assert.equal(v("hubspot.emails_sent", "2026-10-12"), 0);
   assert.equal(parseEmailHistogram({}, days).warnings.length, 1);
+});
+
+test("Academy enrolments are counted per Adelaide day and per course", () => {
+  const days = ["2026-10-13", "2026-10-14"];
+  const recs = [
+    { properties: { createdate: "2026-10-13T06:26:49Z", last_course_booked: "Registered Scrum Basics" } },
+    { properties: { createdate: "2026-10-13T20:33:40Z", last_course_booked: "Registered Scrum Basics" } }, // 14 Oct in Adelaide
+    { properties: { createdate: "2026-10-13T07:00:00Z", last_course_booked: null } },
+  ];
+  const byCourse = countByDayAndDimension(recs, "createdate", "last_course_booked", days, "hubspot.academy_enrolments", "course");
+  const v = (date: string, dim: string) => byCourse.find((o) => o.date === date && o.dimension === dim)?.value;
+  assert.equal(v("2026-10-13", "course:registered scrum basics"), 1);
+  assert.equal(v("2026-10-14", "course:registered scrum basics"), 1);
+  assert.equal(v("2026-10-13", "course:unknown"), 1);
+  assert.equal(countByDay(recs, "createdate", days, "hubspot.academy_enrolments")[0].value, 2);
 });

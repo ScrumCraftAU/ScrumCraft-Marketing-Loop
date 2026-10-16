@@ -2,7 +2,7 @@ import "server-only";
 import { env, isHubSpotConfigured } from "@/lib/env";
 import type { Observation } from "./ga4";
 import { adelaideDay, adelaideMidnight, lastDays } from "./days";
-import { countByDay, parseEmailHistogram, sumByDay } from "./hubspot";
+import { countByDay, countByDayAndDimension, parseEmailHistogram, sumByDay } from "./hubspot";
 import { defaultDayCount, recordPullError, storePull } from "./store";
 
 const API = "https://api.hubapi.com";
@@ -94,6 +94,18 @@ export async function pullHubSpot(dayCount?: number): Promise<{ ok: boolean; sto
     observations.push(...countByDay(sqls, "hs_v2_date_entered_salesqualifiedlead", days, "hubspot.sqls"));
     raw.mqls = mqls.length;
     raw.sqls = sqls.length;
+
+    // Academy (LearnWorlds) enrolments: contacts the LearnWorlds sync creates, by course. Existing
+    // contacts who enrol again aren't counted (HubSpot keeps no enrolment date for them).
+    const enrolled = await searchAll(
+      "contacts",
+      [between("createdate", from, to), { propertyName: "hs_object_source_detail_1", operator: "EQ", value: "LearnWorlds" }],
+      ["createdate", "last_course_booked"],
+      warnings,
+    );
+    observations.push(...countByDay(enrolled, "createdate", days, "hubspot.academy_enrolments"));
+    observations.push(...countByDayAndDimension(enrolled, "createdate", "last_course_booked", days, "hubspot.academy_enrolments", "course"));
+    raw.academy_enrolments = enrolled.length;
 
     const created = await searchAll("deals", [between("createdate", from, to)], ["createdate"], warnings);
     observations.push(...countByDay(created, "createdate", days, "hubspot.deals_created"));
