@@ -75,8 +75,8 @@ test("won revenue is summed per day and deal source", () => {
 
 test("open pipeline is a snapshot on one day, overall and by source", () => {
   const open = [
-    { properties: { amount_in_home_currency: "30000", hs_forecast_amount: "24000", deal_source: "Government panel / tender" } },
-    { properties: { amount_in_home_currency: "25999", hs_forecast_amount: "10400", deal_source: "Referral" } },
+    { properties: { amount_in_home_currency: "30000", hs_projected_amount_in_home_currency: "24000", deal_source: "Government panel / tender" } },
+    { properties: { amount_in_home_currency: "25999", hs_projected_amount_in_home_currency: "10400", deal_source: "Referral" } },
   ];
   const obs = pipelineSnapshot(open, "2026-10-16");
   const v = (key: string, dim = "") => obs.find((o) => o.metric_key === key && o.dimension === dim)?.value;

@@ -57,7 +57,8 @@ export function sumByDayAndDimension(records: { properties: Record<string, strin
 
 /**
  * Open pipeline on `day` (a snapshot, not a daily flow): deal count, total amount and the
- * probability-weighted amount, overall and by deal source. Stored with aggregation "last".
+ * probability-weighted amount (HubSpot "Weighted amount": amount x deal-stage probability), overall
+ * and by deal source. Stored with aggregation "last".
  */
 export function pipelineSnapshot(openDeals: { properties: Record<string, string | null | undefined> }[], day: string): Observation[] {
   const totals = new Map<string, Observation>();
@@ -72,7 +73,7 @@ export function pipelineSnapshot(openDeals: { properties: Record<string, string 
   for (const d of openDeals) {
     const source = `source:${(d.properties.deal_source ?? "unknown").trim().toLowerCase() || "unknown"}`;
     const amount = Number(d.properties.amount_in_home_currency ?? 0);
-    const weighted = Number(d.properties.hs_forecast_amount ?? 0);
+    const weighted = Number(d.properties.hs_projected_amount_in_home_currency ?? 0);
     for (const dim of ["", source]) {
       add("hubspot.open_deals", dim, 1);
       add("hubspot.open_pipeline_value", dim, amount);

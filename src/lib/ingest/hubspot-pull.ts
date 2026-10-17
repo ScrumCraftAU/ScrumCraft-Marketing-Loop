@@ -139,7 +139,7 @@ export async function pullHubSpot(dayCount?: number): Promise<{ ok: boolean; sto
     const open = await searchAll(
       "deals",
       [{ propertyName: "hs_is_closed", operator: "EQ", value: "false" }],
-      ["amount_in_home_currency", "hs_forecast_amount", "deal_source"],
+      ["amount_in_home_currency", "hs_projected_amount_in_home_currency", "deal_source"],
       warnings,
     );
     observations.push(...pipelineSnapshot(open, days[days.length - 1]));
