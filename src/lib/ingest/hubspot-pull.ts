@@ -2,7 +2,7 @@ import "server-only";
 import { env, isHubSpotConfigured } from "@/lib/env";
 import type { Observation } from "./ga4";
 import { adelaideDay, adelaideMidnight, lastDays } from "./days";
-import { countByDay, countByDayAndDimension, parseEmailHistogram, sumByDay } from "./hubspot";
+import { countByDay, countByDayAndDimension, parseEmailHistogram, pipelineSnapshot, sumByDay, sumByDayAndDimension } from "./hubspot";
 import { defaultDayCount, recordPullError, storePull } from "./store";
 
 const API = "https://api.hubapi.com";
@@ -107,18 +107,43 @@ export async function pullHubSpot(dayCount?: number): Promise<{ ok: boolean; sto
     observations.push(...countByDayAndDimension(enrolled, "createdate", "last_course_booked", days, "hubspot.academy_enrolments", "course"));
     raw.academy_enrolments = enrolled.length;
 
-    const created = await searchAll("deals", [between("createdate", from, to)], ["createdate"], warnings);
+    // Deals, with a breakdown by deal source (SCM-68) so revenue can be traced to channels.
+    const created = await searchAll("deals", [between("createdate", from, to)], ["createdate", "deal_source"], warnings);
     observations.push(...countByDay(created, "createdate", days, "hubspot.deals_created"));
+    observations.push(...countByDayAndDimension(created, "createdate", "deal_source", days, "hubspot.deals_created", "source"));
     const won = await searchAll(
       "deals",
       [between("closedate", from, to), { propertyName: "hs_is_closed_won", operator: "EQ", value: "true" }],
-      ["closedate", "amount_in_home_currency", "dealname"],
+      ["closedate", "amount_in_home_currency", "dealname", "deal_source"],
       warnings,
     );
     observations.push(...countByDay(won, "closedate", days, "hubspot.deals_won"));
     observations.push(...sumByDay(won, "closedate", "amount_in_home_currency", days, "hubspot.won_revenue"));
+    observations.push(...countByDayAndDimension(won, "closedate", "deal_source", days, "hubspot.deals_won", "source"));
+    observations.push(...sumByDayAndDimension(won, "closedate", "amount_in_home_currency", "deal_source", days, "hubspot.won_revenue", "source"));
+    const lost = await searchAll(
+      "deals",
+      [between("closedate", from, to), { propertyName: "hs_is_closed_lost", operator: "EQ", value: "true" }],
+      ["closedate", "amount_in_home_currency", "deal_source", "closed_lost_reason"],
+      warnings,
+    );
+    observations.push(...countByDay(lost, "closedate", days, "hubspot.deals_lost"));
+    observations.push(...sumByDay(lost, "closedate", "amount_in_home_currency", days, "hubspot.lost_value"));
+    observations.push(...countByDayAndDimension(lost, "closedate", "deal_source", days, "hubspot.deals_lost", "source"));
+    observations.push(...countByDayAndDimension(lost, "closedate", "closed_lost_reason", days, "hubspot.deals_lost", "reason"));
     raw.deals_created = created.length;
-    raw.deals_won = won.map((d) => ({ id: d.id, closedate: d.properties.closedate, amount: d.properties.amount_in_home_currency }));
+    raw.deals_won = won.map((d) => ({ id: d.id, closedate: d.properties.closedate, amount: d.properties.amount_in_home_currency, source: d.properties.deal_source }));
+    raw.deals_lost = lost.length;
+
+    // Open pipeline is a snapshot, stored on the latest pulled day (aggregation "last").
+    const open = await searchAll(
+      "deals",
+      [{ propertyName: "hs_is_closed", operator: "EQ", value: "false" }],
+      ["amount_in_home_currency", "hs_forecast_amount", "deal_source"],
+      warnings,
+    );
+    observations.push(...pipelineSnapshot(open, days[days.length - 1]));
+    raw.open_deals = open.length;
 
     try {
       const qs = new URLSearchParams({ interval: "DAY", startTimestamp: new Date(from).toISOString(), endTimestamp: new Date(to).toISOString() });

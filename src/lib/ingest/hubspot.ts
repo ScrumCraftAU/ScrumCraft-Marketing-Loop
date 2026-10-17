@@ -38,6 +38,50 @@ export function countByDayAndDimension(records: { properties: Record<string, str
   return [...counts.values()];
 }
 
+/** Like countByDayAndDimension, but sums a numeric property (for example won revenue by deal source). */
+export function sumByDayAndDimension(records: { properties: Record<string, string | null | undefined> }[], dateProp: string, valueProp: string, dimProp: string, days: string[], metric_key: string, prefix: string): Observation[] {
+  const wanted = new Set(days);
+  const sums = new Map<string, Observation>();
+  for (const r of records) {
+    const day = r.properties[dateProp] ? adelaideDay(r.properties[dateProp]!) : null;
+    const v = Number(r.properties[valueProp] ?? 0);
+    if (!day || !wanted.has(day) || !Number.isFinite(v)) continue;
+    const dimension = `${prefix}:${(r.properties[dimProp] ?? "unknown").trim().toLowerCase() || "unknown"}`;
+    const k = `${day}\u0000${dimension}`;
+    const cur = sums.get(k);
+    if (cur) cur.value += v;
+    else sums.set(k, { metric_key, date: day, dimension, value: v });
+  }
+  return [...sums.values()];
+}
+
+/**
+ * Open pipeline on `day` (a snapshot, not a daily flow): deal count, total amount and the
+ * probability-weighted amount, overall and by deal source. Stored with aggregation "last".
+ */
+export function pipelineSnapshot(openDeals: { properties: Record<string, string | null | undefined> }[], day: string): Observation[] {
+  const totals = new Map<string, Observation>();
+  const add = (metric_key: string, dimension: string, value: number) => {
+    if (!Number.isFinite(value)) return;
+    const k = `${metric_key}\u0000${dimension}`;
+    const cur = totals.get(k);
+    if (cur) cur.value += value;
+    else totals.set(k, { metric_key, date: day, dimension, value });
+  };
+  for (const key of ["hubspot.open_deals", "hubspot.open_pipeline_value", "hubspot.weighted_pipeline_value"]) add(key, "", 0);
+  for (const d of openDeals) {
+    const source = `source:${(d.properties.deal_source ?? "unknown").trim().toLowerCase() || "unknown"}`;
+    const amount = Number(d.properties.amount_in_home_currency ?? 0);
+    const weighted = Number(d.properties.hs_forecast_amount ?? 0);
+    for (const dim of ["", source]) {
+      add("hubspot.open_deals", dim, 1);
+      add("hubspot.open_pipeline_value", dim, amount);
+      add("hubspot.weighted_pipeline_value", dim, weighted);
+    }
+  }
+  return [...totals.values()];
+}
+
 /** Sums a numeric property per Adelaide day of `dateProp`, only for `days`, with zero-filled gaps. */
 export function sumByDay(records: { properties: Record<string, string | null | undefined> }[], dateProp: string, valueProp: string, days: string[], metric_key: string): Observation[] {
   const sums = new Map(days.map((d) => [d, 0]));

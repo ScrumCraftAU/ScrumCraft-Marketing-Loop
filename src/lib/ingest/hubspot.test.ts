@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { adelaideDay, adelaideMidnight, countByDay, countByDayAndDimension, lastDays, parseEmailHistogram, sumByDay } from "./hubspot.ts";
+import { adelaideDay, adelaideMidnight, countByDay, countByDayAndDimension, lastDays, pipelineSnapshot, sumByDayAndDimension, parseEmailHistogram, sumByDay } from "./hubspot.ts";
 
 test("Adelaide days and midnights, either side of daylight saving", () => {
   // 13 Oct 2026 is daylight time (UTC+10:30): midnight is 13:30 UTC the day before.
@@ -58,4 +58,32 @@ test("Academy enrolments are counted per Adelaide day and per course", () => {
   assert.equal(v("2026-10-14", "course:registered scrum basics"), 1);
   assert.equal(v("2026-10-13", "course:unknown"), 1);
   assert.equal(countByDay(recs, "createdate", days, "hubspot.academy_enrolments")[0].value, 2);
+});
+
+test("won revenue is summed per day and deal source", () => {
+  const won = [
+    { properties: { closedate: "2026-10-14T02:43:50Z", amount_in_home_currency: "42000", deal_source: "Cognism" } },
+    { properties: { closedate: "2026-10-14T05:00:00Z", amount_in_home_currency: "1000", deal_source: "Organic search" } },
+    { properties: { closedate: "2026-10-14T06:00:00Z", amount_in_home_currency: "500", deal_source: null } },
+  ];
+  const obs = sumByDayAndDimension(won, "closedate", "amount_in_home_currency", "deal_source", ["2026-10-14"], "hubspot.won_revenue", "source");
+  const v = (dim: string) => obs.find((o) => o.dimension === dim)?.value;
+  assert.equal(v("source:cognism"), 42000);
+  assert.equal(v("source:organic search"), 1000);
+  assert.equal(v("source:unknown"), 500);
+});
+
+test("open pipeline is a snapshot on one day, overall and by source", () => {
+  const open = [
+    { properties: { amount_in_home_currency: "30000", hs_forecast_amount: "24000", deal_source: "Government panel / tender" } },
+    { properties: { amount_in_home_currency: "25999", hs_forecast_amount: "10400", deal_source: "Referral" } },
+  ];
+  const obs = pipelineSnapshot(open, "2026-10-16");
+  const v = (key: string, dim = "") => obs.find((o) => o.metric_key === key && o.dimension === dim)?.value;
+  assert.ok(obs.every((o) => o.date === "2026-10-16"));
+  assert.equal(v("hubspot.open_deals"), 2);
+  assert.equal(v("hubspot.open_pipeline_value"), 55999);
+  assert.equal(v("hubspot.weighted_pipeline_value"), 34400);
+  assert.equal(v("hubspot.open_pipeline_value", "source:referral"), 25999);
+  assert.equal(pipelineSnapshot([], "2026-10-16").find((o) => o.metric_key === "hubspot.open_deals")?.value, 0);
 });
