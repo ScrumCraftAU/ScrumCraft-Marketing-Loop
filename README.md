@@ -117,7 +117,9 @@ metrics with `date`, so that request asks for 20 named single-day ranges (`2days
 **HubSpot**, **Ticket Tailor** and **LearnWorlds** (ScrumCraft Academy) are pulled by the app itself at the start of each daily loop run (and by "Pull now" on
 Metrics & sources), using `HUBSPOT_ACCESS_TOKEN`, `TICKET_TAILOR_API_KEY` and `LEARNWORLDS_SCHOOL_URL` / `LEARNWORLDS_CLIENT_ID` /
 `LEARNWORLDS_CLIENT_SECRET` (client-credentials token per pull). LearnWorlds counts paid, non-refunded payments and leaves out
-"Added by admin" enrolments, which are usually invoiced and already a HubSpot deal. Days are Adelaide days; the first pull
+"Added by admin" enrolments, which are usually invoiced and already a HubSpot deal.
+**Academy course sales are counted from LearnWorlds only** (agreed 18 Oct 2026): no HubSpot deals are added by hand for
+them. The two deals that were (`EXCLUDED_DEALS` in `src/lib/ingest/hubspot.ts`) are left out of every HubSpot deal metric. Days are Adelaide days; the first pull
 backfills 42 days (LearnWorlds: a year), later pulls refresh the last 14. HubSpot also has a one-off
 **Backfill a year** button (shown until about a year of history is stored). Other sources use the generic format below.
 

@@ -9,6 +9,18 @@ import type { Observation } from "./ga4.ts";
 export { TIME_ZONE, adelaideDay, adelaideMidnight, lastDays } from "./days.ts";
 import { adelaideDay } from "./days.ts";
 
+/**
+ * HubSpot deals left out of every deal metric. Academy (LearnWorlds) course sales are counted from
+ * LearnWorlds (learnworlds.revenue, agreed 18 Oct 2026); these deals were added by hand for such
+ * sales before that and would count the same money twice. No new deals are added for course sales.
+ */
+export const EXCLUDED_DEALS: Record<string, string> = {
+  "49779082773": "Julie Williams - YOMP - RSMPO, $324.50 LearnWorlds sale 22 Nov 2025",
+  "60070268588": "Christine Kumar Self Paced RSMPO, $595 LearnWorlds sale 7 May 2026",
+};
+
+export const withoutExcludedDeals = <T extends { id: string }>(deals: T[]) => deals.filter((d) => !(String(d.id) in EXCLUDED_DEALS));
+
 /** Counts records per Adelaide day of `dateProp`, only for `days`, with zero-filled gaps. */
 export function countByDay(records: { properties: Record<string, string | null | undefined> }[], dateProp: string, days: string[], metric_key: string): Observation[] {
   const counts = new Map(days.map((d) => [d, 0]));

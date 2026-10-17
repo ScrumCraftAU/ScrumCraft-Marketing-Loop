@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { adelaideDay, adelaideMidnight, countByDay, countByDayAndDimension, lastDays, pipelineSnapshot, sumByDayAndDimension, parseEmailHistogram, sumByDay } from "./hubspot.ts";
+import { adelaideDay, adelaideMidnight, countByDay, countByDayAndDimension, lastDays, pipelineSnapshot, sumByDayAndDimension, parseEmailHistogram, sumByDay, withoutExcludedDeals } from "./hubspot.ts";
 
 test("Adelaide days and midnights, either side of daylight saving", () => {
   // 13 Oct 2026 is daylight time (UTC+10:30): midnight is 13:30 UTC the day before.
@@ -86,4 +86,9 @@ test("open pipeline is a snapshot on one day, overall and by source", () => {
   assert.equal(v("hubspot.weighted_pipeline_value"), 34400);
   assert.equal(v("hubspot.open_pipeline_value", "source:referral"), 25999);
   assert.equal(pipelineSnapshot([], "2026-10-16").find((o) => o.metric_key === "hubspot.open_deals")?.value, 0);
+});
+
+test("deals added by hand for LearnWorlds sales are left out", () => {
+  const deals = [{ id: "49779082773" }, { id: "60070268588" }, { id: "65578234244" }];
+  assert.deepEqual(withoutExcludedDeals(deals).map((d) => d.id), ["65578234244"]);
 });

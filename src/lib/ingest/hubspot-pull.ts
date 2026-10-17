@@ -2,7 +2,7 @@ import "server-only";
 import { env, isHubSpotConfigured } from "@/lib/env";
 import type { Observation } from "./ga4";
 import { adelaideDay, adelaideMidnight, lastDays } from "./days";
-import { countByDay, countByDayAndDimension, parseEmailHistogram, pipelineSnapshot, sumByDay, sumByDayAndDimension } from "./hubspot";
+import { countByDay, countByDayAndDimension, parseEmailHistogram, pipelineSnapshot, sumByDay, sumByDayAndDimension, withoutExcludedDeals } from "./hubspot";
 import { defaultDayCount, recordPullError, storePull } from "./store";
 
 const API = "https://api.hubapi.com";
@@ -130,24 +130,29 @@ export async function pullHubSpot(dayCount?: number): Promise<{ ok: boolean; sto
     raw.academy_enrolments = enrolled.length;
 
     // Deals, with a breakdown by deal source (SCM-68) so revenue can be traced to channels.
-    const created = await searchAll("deals", [between("createdate", from, to)], ["createdate", "deal_source"], warnings);
+    // Deals added by hand for LearnWorlds course sales are left out (counted from LearnWorlds).
+    const created = withoutExcludedDeals(await searchAll("deals", [between("createdate", from, to)], ["createdate", "deal_source"], warnings));
     observations.push(...countByDay(created, "createdate", days, "hubspot.deals_created"));
     observations.push(...countByDayAndDimension(created, "createdate", "deal_source", days, "hubspot.deals_created", "source"));
-    const won = await searchAll(
-      "deals",
-      [between("closedate", from, to), { propertyName: "hs_is_closed_won", operator: "EQ", value: "true" }],
-      ["closedate", "amount_in_home_currency", "dealname", "deal_source"],
-      warnings,
+    const won = withoutExcludedDeals(
+      await searchAll(
+        "deals",
+        [between("closedate", from, to), { propertyName: "hs_is_closed_won", operator: "EQ", value: "true" }],
+        ["closedate", "amount_in_home_currency", "dealname", "deal_source"],
+        warnings,
+      ),
     );
     observations.push(...countByDay(won, "closedate", days, "hubspot.deals_won"));
     observations.push(...sumByDay(won, "closedate", "amount_in_home_currency", days, "hubspot.won_revenue"));
     observations.push(...countByDayAndDimension(won, "closedate", "deal_source", days, "hubspot.deals_won", "source"));
     observations.push(...sumByDayAndDimension(won, "closedate", "amount_in_home_currency", "deal_source", days, "hubspot.won_revenue", "source"));
-    const lost = await searchAll(
-      "deals",
-      [between("closedate", from, to), { propertyName: "hs_is_closed_lost", operator: "EQ", value: "true" }],
-      ["closedate", "amount_in_home_currency", "deal_source", "closed_lost_reason"],
-      warnings,
+    const lost = withoutExcludedDeals(
+      await searchAll(
+        "deals",
+        [between("closedate", from, to), { propertyName: "hs_is_closed_lost", operator: "EQ", value: "true" }],
+        ["closedate", "amount_in_home_currency", "deal_source", "closed_lost_reason"],
+        warnings,
+      ),
     );
     observations.push(...countByDay(lost, "closedate", days, "hubspot.deals_lost"));
     observations.push(...sumByDay(lost, "closedate", "amount_in_home_currency", days, "hubspot.lost_value"));
@@ -158,11 +163,13 @@ export async function pullHubSpot(dayCount?: number): Promise<{ ok: boolean; sto
     raw.deals_lost = lost.length;
 
     // Open pipeline is a snapshot, stored on the latest pulled day (aggregation "last").
-    const open = await searchAll(
-      "deals",
-      [{ propertyName: "hs_is_closed", operator: "EQ", value: "false" }],
-      ["amount_in_home_currency", "hs_projected_amount_in_home_currency", "deal_source"],
-      warnings,
+    const open = withoutExcludedDeals(
+      await searchAll(
+        "deals",
+        [{ propertyName: "hs_is_closed", operator: "EQ", value: "false" }],
+        ["amount_in_home_currency", "hs_projected_amount_in_home_currency", "deal_source"],
+        warnings,
+      ),
     );
     observations.push(...pipelineSnapshot(open, days[days.length - 1]));
     raw.open_deals = open.length;
