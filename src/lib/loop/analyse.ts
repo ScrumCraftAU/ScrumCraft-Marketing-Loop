@@ -5,6 +5,7 @@ import { z } from "zod";
 import { env } from "@/lib/env";
 import type { StatsSnapshot } from "@/lib/metrics/stats";
 import type { SiteStats } from "@/lib/metrics/sites";
+import type { Breakdown } from "@/lib/metrics/breakdowns";
 import type { StrategyDoc } from "@/lib/strategy/confluence";
 import type { Experiment } from "@/lib/types";
 
@@ -28,6 +29,13 @@ Metrics with dataDays = 0 have no data yet (the source is probably not wired) �
 summary rather than treating it as a drop. Percent values are fractions (0.12 = 12%). Currency is AUD.
 The metric totals are for www.scrumcraft.com. web_properties breaks traffic down per GA4 property;
 Clarity and Remarkable Talent are separate brands — never mix their numbers or voice with ScrumCraft's.
+breakdowns split metrics by dimension: source = HubSpot deal source (how the deal came about; "repeat /
+expansion" = an existing client), reason = closed-lost reason, course = Academy course, channel = GA4
+channel, page = Search Console landing page. Sums cover the last 7 and last 90 days (data_from shows how far
+back data actually goes, often less than 90 days); "latest" is the open-pipeline snapshot. Use them to say
+where revenue, pipeline and enrolments come from and which channels or courses to invest in. Deals are
+lumpy: judge sources on the 90-day view, not one week. Many lost deals are not recorded in HubSpot, so treat
+win rate as overstated.
 When strategy documents are provided, ground findings and experiments in them: name the product,
 persona or campaign theme an experiment serves, and keep any proposed copy in the brand voice.
 Be specific and brief; this is read by a small marketing team over coffee.`;
@@ -66,7 +74,7 @@ export const Analysis = z.object({
 export type Analysis = z.infer<typeof Analysis>;
 
 /** Compact, model-friendly view of the stats (no daily series — weekly aggregates only). */
-export function toModelInput(stats: StatsSnapshot, experiments: Experiment[], sites: SiteStats[] = []) {
+export function toModelInput(stats: StatsSnapshot, experiments: Experiment[], sites: SiteStats[] = [], breakdowns: Breakdown[] = []) {
   return {
     as_of: stats.asOf,
     week_start: stats.periodStart,
@@ -95,6 +103,7 @@ export function toModelInput(stats: StatsSnapshot, experiments: Experiment[], si
       rule_flag: s.flag,
       dataDays: s.dataDays,
     })),
+    breakdowns,
     open_experiments: experiments.map((e) => ({
       id: e.id,
       title: e.title,

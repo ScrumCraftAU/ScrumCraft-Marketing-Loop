@@ -6,6 +6,7 @@ import { pullHubSpot } from "@/lib/ingest/hubspot-pull";
 import { pullTicketTailor } from "@/lib/ingest/ticket-tailor-pull";
 import { pullLearnWorlds } from "@/lib/ingest/learnworlds-pull";
 import { computeStats } from "@/lib/metrics/stats";
+import { computeBreakdowns } from "@/lib/metrics/breakdowns-load";
 import { computeSiteStats } from "@/lib/metrics/sites";
 import { loadStrategyDocs } from "@/lib/strategy/confluence";
 import { analyse, toModelInput } from "@/lib/loop/analyse";
@@ -75,7 +76,7 @@ export async function runLoop({ trigger, triggeredBy }: RunOptions) {
     if (expErr) throw expErr;
     const experiments = (open ?? []) as Experiment[];
 
-    const [sites, docs] = await Promise.all([computeSiteStats(), loadStrategyDocs()]);
+    const [sites, docs, breakdowns] = await Promise.all([computeSiteStats(), loadStrategyDocs(), computeBreakdowns(stats.asOf)]);
     // WIP: Plan (proposed + approved) holds at most WIP_LIMIT, so only propose into free slots.
     const inPlan = experiments.filter((e) => e.status === "proposed" || e.status === "approved").length;
     const maxNew = Math.max(0, WIP_LIMIT - inPlan);
@@ -88,7 +89,7 @@ export async function runLoop({ trigger, triggeredBy }: RunOptions) {
       .order("updated_at", { ascending: false })
       .limit(30);
     const input = {
-      ...toModelInput(stats, experiments, sites),
+      ...toModelInput(stats, experiments, sites, breakdowns),
       max_new_experiments: maxNew,
       recent_decisions: (closed ?? []).map((e) => ({
         title: e.title,

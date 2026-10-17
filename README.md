@@ -23,6 +23,9 @@ Triggers:
 - **Daily:** Vercel Cron calls `GET /api/loop/cron` with `Authorization: Bearer $CRON_SECRET` at 21:30 UTC (8:00am Adelaide in daylight time, 7:00am in standard time), after the 6:30am GA4 ingest. Monday's run feeds the weekly review; Wednesday's feeds backlog refinement.
 
 Stats are computed deterministically in code (`src/lib/metrics/stats.ts`). Claude only receives weekly aggregates (`src/lib/loop/analyse.ts`), and the snapshot it saw is stored on each `loop_runs` row for audit.
+It also receives **breakdowns** (`src/lib/metrics/breakdowns.ts`): deals, revenue and pipeline by deal source, lost deals by reason,
+Academy sales by course, GA4 sessions by channel and Search Console by page (top 10 each), summed over the last 7 and 90 days, or the
+latest snapshot for open pipeline. Deals are lumpy, so sources are judged on the 90-day view.
 
 ## Data model (`supabase/migrations/0001_initial.sql`)
 
