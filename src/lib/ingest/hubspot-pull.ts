@@ -54,6 +54,32 @@ async function searchAll(object: string, filters: Filter[], properties: string[]
   return out;
 }
 
+/** Created dates of contacts created in [from, to), listed a month at a time (each search stays under the
+ * 10,000 cap). A month with more than that (a big import) is counted per day instead. */
+async function newContactsPerDay(days: string[], from: number, to: number, warnings: string[]): Promise<Observation[]> {
+  const created: SearchResult["results"] = [];
+  const perDayFallback: Observation[] = [];
+  for (let start = from; start < to; ) {
+    const startDay = adelaideDay(start)!;
+    const [y, m] = startDay.split("-").map(Number);
+    const nextMonth = `${m === 12 ? y + 1 : y}-${String(m === 12 ? 1 : m + 1).padStart(2, "0")}-01`;
+    const end = Math.min(to, adelaideMidnight(nextMonth));
+    const filters = [between("createdate", start, end)];
+    if ((await countOnly("contacts", filters)) < SEARCH_CAP) {
+      created.push(...(await searchAll("contacts", filters, ["createdate"], warnings)));
+    } else {
+      for (const day of days.filter((d) => adelaideMidnight(d) >= start && adelaideMidnight(d) < end)) {
+        const s = adelaideMidnight(day);
+        const e = adelaideMidnight(adelaideDay(s + 36 * 3_600_000)!);
+        perDayFallback.push({ metric_key: "hubspot.new_contacts", date: day, dimension: "", value: await countOnly("contacts", [between("createdate", s, e)]) });
+      }
+    }
+    start = end;
+  }
+  const counted = new Set(perDayFallback.map((o) => o.date));
+  return [...countByDay(created, "createdate", days, "hubspot.new_contacts").filter((o) => !counted.has(o.date)), ...perDayFallback];
+}
+
 /** Number of records matching the filters (one request, no paging). */
 async function countOnly(object: string, filters: Filter[]) {
   const page = await hubspot<SearchResult>(`/crm/v3/objects/${object}/search`, {
@@ -68,6 +94,8 @@ async function countOnly(object: string, filters: Filter[]) {
  * as daily observations (dimension ''). Re-pulling a day overwrites it, so late edits in HubSpot
  * (a deal's close date, a lifecycle backfill) are picked up on later runs.
  */
+export const BACKFILL_DAYS = 365;
+
 export async function pullHubSpot(dayCount?: number): Promise<{ ok: boolean; stored: number; days: number; warnings: string[]; error?: string }> {
   if (!isHubSpotConfigured()) return { ok: false, stored: 0, days: 0, warnings: [], error: "HUBSPOT_ACCESS_TOKEN is not set" };
   const days = lastDays(dayCount ?? (await defaultDayCount("hubspot")));
@@ -78,15 +106,9 @@ export async function pullHubSpot(dayCount?: number): Promise<{ ok: boolean; sto
   const raw: Record<string, unknown> = { days: [days[0], days[days.length - 1]] };
 
   try {
-    // New contacts can arrive in bulk imports, so count per day instead of listing them.
-    const perDay: number[] = [];
-    for (const day of days) {
-      const start = adelaideMidnight(day);
-      const end = adelaideMidnight(adelaideDay(start + 36 * 3_600_000)!); // midnight of the next day
-      perDay.push(await countOnly("contacts", [between("createdate", start, end)]));
-    }
-    days.forEach((date, i) => observations.push({ metric_key: "hubspot.new_contacts", date, dimension: "", value: perDay[i] }));
-    raw.new_contacts = perDay;
+    const newContacts = await newContactsPerDay(days, from, to, warnings);
+    observations.push(...newContacts);
+    raw.new_contacts = newContacts.reduce((a, o) => a + o.value, 0);
 
     const mqls = await searchAll("contacts", [between("hs_v2_date_entered_marketingqualifiedlead", from, to)], ["hs_v2_date_entered_marketingqualifiedlead"], warnings);
     observations.push(...countByDay(mqls, "hs_v2_date_entered_marketingqualifiedlead", days, "hubspot.mqls"));

@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/supabase/server";
 import { isConfluenceConfigured, isHubSpotConfigured, isJiraConfigured, isLearnWorldsConfigured, isSupabaseConfigured, isTicketTailorConfigured } from "@/lib/env";
-import { pullHubSpot } from "@/lib/ingest/hubspot-pull";
+import { BACKFILL_DAYS, pullHubSpot } from "@/lib/ingest/hubspot-pull";
 import { pullTicketTailor } from "@/lib/ingest/ticket-tailor-pull";
 import { pullLearnWorlds } from "@/lib/ingest/learnworlds-pull";
 import { runLoop } from "@/lib/loop/run";
@@ -42,6 +42,17 @@ const PULLS = {
   learnworlds: { configured: isLearnWorldsConfigured, envVar: "LEARNWORLDS_SCHOOL_URL, LEARNWORLDS_CLIENT_ID and LEARNWORLDS_CLIENT_SECRET", pull: () => pullLearnWorlds() },
 } as const;
 export type PulledSource = keyof typeof PULLS;
+
+/** One-off year-long HubSpot backfill (daily pulls refresh only the last 14 days). */
+export async function backfillHubSpot() {
+  if (!isSupabaseConfigured()) return { ok: false as const, error: "Supabase is not configured yet" };
+  if (!isHubSpotConfigured()) return { ok: false as const, error: "Add HUBSPOT_ACCESS_TOKEN to the Vercel project first" };
+  const res = await pullHubSpot(BACKFILL_DAYS);
+  revalidatePath("/", "layout");
+  return res.ok
+    ? { ok: true as const, stored: res.stored, days: res.days, warnings: res.warnings }
+    : { ok: false as const, error: res.error ?? "Backfill failed" };
+}
 
 export async function pullSourceNow(source: PulledSource) {
   if (!isSupabaseConfigured()) return { ok: false as const, error: "Supabase is not configured yet" };

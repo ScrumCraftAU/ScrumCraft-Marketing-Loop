@@ -7,7 +7,7 @@ import { db } from "@/lib/supabase/server";
 import type { Metric, Source } from "@/lib/types";
 import type { StrategyDoc } from "@/lib/strategy/confluence";
 import { RefreshDocsButton } from "@/components/refresh-docs-button";
-import { PullSourceButton } from "@/components/pull-source-button";
+import { BackfillHubSpotButton, PullSourceButton } from "@/components/pull-source-button";
 import { FRESH_WINDOW_DAYS, isOnline } from "@/lib/metrics/freshness";
 import { cn } from "@/lib/utils";
 
@@ -28,7 +28,7 @@ function OnlineLozenge({ online, latest }: { online: boolean; latest?: string })
 }
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 300; // "Pull now" runs the HubSpot pull on this route (first pull backfills 42 days)
+export const maxDuration = 300; // "Pull now" and the year-long HubSpot backfill run on this route
 
 export default async function MetricsPage() {
   const header = (
@@ -39,14 +39,18 @@ export default async function MetricsPage() {
   );
   if (!isSupabaseConfigured()) return <div className="space-y-6">{header}<NotConfigured /></div>;
 
-  const [{ data: sources }, { data: metrics }, { data: docs }, { data: freshness }] = await Promise.all([
+  const [{ data: sources }, { data: metrics }, { data: docs }, { data: freshness }, { data: firstHubSpot }] = await Promise.all([
     db().from("sources").select("*").order("id"),
     db().from("metrics").select("*").order("sort_order"),
     db().from("strategy_docs").select("*").order("sort_order"),
     db().from("metric_freshness").select("metric_key, latest_date"),
+    db().from("metric_observations").select("date").eq("metric_key", "hubspot.new_contacts").eq("dimension", "").order("date").limit(1),
   ]);
   const latest = new Map((freshness ?? []).map((f) => [f.metric_key as string, f.latest_date as string]));
   const today = new Date().toISOString().slice(0, 10);
+  // Offer the one-off HubSpot backfill until about a year of history is stored.
+  const hubspotFrom = (firstHubSpot?.[0]?.date as string | undefined) ?? null;
+  const offerBackfill = !hubspotFrom || Date.parse(hubspotFrom) > Date.parse(today) - 330 * 86_400_000;
   const formulas = new Map(((metrics ?? []) as Metric[]).map((m) => [m.key, m.formula]));
 
   return (
@@ -67,8 +71,9 @@ export default async function MetricsPage() {
               </p>
               {s.last_error && <p className="mt-1 rounded bg-bad/15 px-2 py-1 text-primary">{s.last_error}</p>}
               {(s.id === "hubspot" || s.id === "ticket_tailor" || s.id === "learnworlds") && (
-                <div className="mt-2">
+                <div className="mt-2 flex flex-wrap gap-2">
                   <PullSourceButton source={s.id} label={s.name} />
+                  {s.id === "hubspot" && offerBackfill && <BackfillHubSpotButton />}
                 </div>
               )}
             </div>
