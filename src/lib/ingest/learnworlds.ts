@@ -7,6 +7,7 @@
  *   - revenue   = the payment's price (AUD, as LearnWorlds reports it)
  *   - "Added by admin" payments are manual enrolments (often invoiced and already a HubSpot
  *     deal), so they are left out to avoid counting the same money twice
+ *   - payments in EXCLUDED_PAYMENTS (tests and team-member purchases) are left out
  * Each payment counts on the Adelaide day it was paid (created, if no paid date).
  */
 import type { Observation } from "./ga4.ts";
@@ -23,18 +24,24 @@ export interface LwPayment {
   created: number; // unix seconds
 }
 
+/** Test and team-member payments, confirmed by Jason. Add the LearnWorlds payment id and a note. */
+export const EXCLUDED_PAYMENTS: Record<string, string> = {
+  "69fd46351d9e9f35130707b3": "8 May 2026, $1.10 How to Write Great Product Goals: team-member test (17 Oct 2026)",
+};
+
 const isAdminAdded = (p: LwPayment) => (p.transaction_id ?? "").trim().toLowerCase() === "added by admin";
 
-export function paymentsToObservations(payments: LwPayment[], days: string[]): { observations: Observation[]; skipped: { admin: number; refunded: number; free: number } } {
+export function paymentsToObservations(payments: LwPayment[], days: string[]): { observations: Observation[]; skipped: { admin: number; refunded: number; free: number; excluded: number } } {
   const zero = () => new Map(days.map((d) => [d, 0]));
   const sales = zero(), revenue = zero();
   const byCourse = new Map<string, Observation>();
-  const skipped = { admin: 0, refunded: 0, free: 0 };
+  const skipped = { admin: 0, refunded: 0, free: 0, excluded: 0 };
 
   for (const p of payments) {
     const day = adelaideDay((p.paid_at ?? p.created) * 1000);
     if (!day || !sales.has(day)) continue;
     const price = Number(p.price ?? 0);
+    if (p.id in EXCLUDED_PAYMENTS) { skipped.excluded++; continue; }
     if (isAdminAdded(p)) { skipped.admin++; continue; }
     if (p.refund_at) { skipped.refunded++; continue; }
     if (!Number.isFinite(price) || price <= 0) { skipped.free++; continue; }

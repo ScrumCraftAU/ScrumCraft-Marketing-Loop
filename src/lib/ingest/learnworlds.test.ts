@@ -18,12 +18,14 @@ test("Academy sales and revenue per Adelaide day and course", () => {
     { id: "p4", transaction_id: "Added by admin", type: "one-off", product: course("Scrum Basics"), price: 1250, paid_at: unix("2026-10-13T02:00:00Z"), created: unix("2026-10-13T02:00:00Z") },
     { id: "p5", transaction_id: "ch_5", type: "one-off", product: course("Scrum Basics"), price: 99, refund_at: unix("2026-10-13T05:00:00Z"), paid_at: unix("2026-10-13T03:00:00Z"), created: unix("2026-10-13T03:00:00Z") },
     { id: "p6", transaction_id: "ch_6", type: "one-off", product: course("Scrum Basics"), price: 0, paid_at: null, created: unix("2026-10-13T04:00:00Z") },
+    // team-member test payment (EXCLUDED_PAYMENTS)
+    { id: "69fd46351d9e9f35130707b3", transaction_id: "ch_8", type: "one-off", product: course("How to Write Great Product Goals"), price: 1.1, paid_at: unix("2026-10-13T06:00:00Z"), created: unix("2026-10-13T06:00:00Z") },
     // outside the window
     { id: "p7", transaction_id: "ch_7", type: "one-off", product: course("Scrum Basics"), price: 99, paid_at: unix("2026-09-01T04:00:00Z"), created: unix("2026-09-01T04:00:00Z") },
   ];
   const { observations, skipped } = paymentsToObservations(payments, days);
   const v = (k: string, d: string, dim = "") => observations.find((o) => o.metric_key === k && o.date === d && o.dimension === dim)?.value;
-  assert.deepEqual(skipped, { admin: 1, refunded: 1, free: 1 });
+  assert.deepEqual(skipped, { admin: 1, refunded: 1, free: 1, excluded: 1 });
   assert.equal(v("learnworlds.sales", "2026-10-12"), 1);
   assert.equal(v("learnworlds.revenue", "2026-10-12"), 299);
   assert.equal(v("learnworlds.sales", "2026-10-13"), 2);
