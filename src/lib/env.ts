@@ -18,12 +18,17 @@ export const env = {
   hubspotAccessToken: process.env.HUBSPOT_ACCESS_TOKEN ?? "",
   // Ticket Tailor API key (Box Office settings > API). Set in Vercel only.
   ticketTailorApiKey: process.env.TICKET_TAILOR_API_KEY ?? "",
+  // LearnWorlds (ScrumCraft Academy) API client (Settings > Developers > API). Set in Vercel only.
+  learnWorldsSchoolUrl: process.env.LEARNWORLDS_SCHOOL_URL ?? "", // e.g. https://scrumcraftacademy.com/admin/api
+  learnWorldsClientId: process.env.LEARNWORLDS_CLIENT_ID ?? "",
+  learnWorldsClientSecret: process.env.LEARNWORLDS_CLIENT_SECRET ?? "",
 };
 
 export const isConfluenceConfigured = () => Boolean(env.confluenceEmail && env.confluenceApiToken);
 export const isJiraConfigured = () => Boolean(env.jiraEmail && env.jiraApiToken);
 export const isHubSpotConfigured = () => Boolean(env.hubspotAccessToken);
 export const isTicketTailorConfigured = () => Boolean(env.ticketTailorApiKey);
+export const isLearnWorldsConfigured = () => Boolean(env.learnWorldsSchoolUrl && env.learnWorldsClientId && env.learnWorldsClientSecret);
 
 export const isSupabaseConfigured = () => Boolean(env.supabaseUrl && env.supabaseSecretKey);
 export const isAnthropicConfigured = () => Boolean(env.anthropicApiKey);

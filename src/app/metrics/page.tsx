@@ -66,7 +66,7 @@ export default async function MetricsPage() {
                 {s.last_synced_at ? `last data ${formatDistanceToNow(parseISO(s.last_synced_at), { addSuffix: true })}` : "no data yet"}
               </p>
               {s.last_error && <p className="mt-1 rounded bg-bad/15 px-2 py-1 text-primary">{s.last_error}</p>}
-              {(s.id === "hubspot" || s.id === "ticket_tailor") && (
+              {(s.id === "hubspot" || s.id === "ticket_tailor" || s.id === "learnworlds") && (
                 <div className="mt-2">
                   <PullSourceButton source={s.id} label={s.name} />
                 </div>

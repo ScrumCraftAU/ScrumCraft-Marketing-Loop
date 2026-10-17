@@ -84,12 +84,14 @@ Derived metrics (`paid.spend`, `paid.cost_per_booking`, `paid.roas`, …) are **
 | Conversion | SQLs | `hubspot.sqls` | HubSpot |
 | Conversion | Course bookings (orders) | `ticket_tailor.orders` | Ticket Tailor |
 | Conversion | Seats sold | `ticket_tailor.tickets` | Ticket Tailor |
+| Conversion | Academy sales (paid, by course) | `learnworlds.sales` | LearnWorlds |
 | Conversion | Upcoming course fill rate | `ticket_tailor.fill_rate` | Ticket Tailor |
 | Conversion | Checkout-to-booking rate | `checkout.conversion` | derived |
 | Revenue | Booking revenue | `ticket_tailor.revenue` | Ticket Tailor |
+| Revenue | Academy revenue (by course) | `learnworlds.revenue` | LearnWorlds |
 | Revenue | Deals created / deals won | `hubspot.deals_created`, `hubspot.deals_won` | HubSpot |
 | Revenue | Closed-won revenue | `hubspot.won_revenue` | HubSpot |
-| Revenue | ★ Marketing-sourced revenue (target $1.2m a year, $100k a month) | `marketing.revenue` | derived |
+| Revenue | ★ Marketing-sourced revenue: bookings + closed-won + Academy (target $1.2m a year, $100k a month) | `marketing.revenue` | derived |
 | Revenue | LinkedIn / Meta / total paid spend | `linkedin_ads.spend`, `meta_ads.spend`, `paid.spend` | Ads / derived |
 | Revenue | Cost per lead | `paid.cost_per_lead` | derived |
 | Revenue | Cost per booking | `paid.cost_per_booking` | derived |
@@ -109,8 +111,10 @@ The main site (www.scrumcraft.com) feeds the dashboard totals, and the other pro
 arrive through the same Zap (a branch for the main property only) as `gsc.*` metrics. GA4 rejects Search Console
 metrics with `date`, so that request asks for 20 named single-day ranges (`2daysAgo`…`21daysAgo`).
 
-**HubSpot** and **Ticket Tailor** are pulled by the app itself at the start of each daily loop run (and by "Pull now" on
-Metrics & sources), using `HUBSPOT_ACCESS_TOKEN` and `TICKET_TAILOR_API_KEY`. Days are Adelaide days; the first pull
+**HubSpot**, **Ticket Tailor** and **LearnWorlds** (ScrumCraft Academy) are pulled by the app itself at the start of each daily loop run (and by "Pull now" on
+Metrics & sources), using `HUBSPOT_ACCESS_TOKEN`, `TICKET_TAILOR_API_KEY` and `LEARNWORLDS_SCHOOL_URL` / `LEARNWORLDS_CLIENT_ID` /
+`LEARNWORLDS_CLIENT_SECRET` (client-credentials token per pull). LearnWorlds counts paid, non-refunded payments and leaves out
+"Added by admin" enrolments, which are usually invoiced and already a HubSpot deal. Days are Adelaide days; the first pull
 backfills 42 days, later pulls refresh the last 14. Other sources use the generic format below.
 
 ```

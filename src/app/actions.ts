@@ -4,9 +4,10 @@ import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/supabase/server";
-import { isConfluenceConfigured, isHubSpotConfigured, isJiraConfigured, isSupabaseConfigured, isTicketTailorConfigured } from "@/lib/env";
+import { isConfluenceConfigured, isHubSpotConfigured, isJiraConfigured, isLearnWorldsConfigured, isSupabaseConfigured, isTicketTailorConfigured } from "@/lib/env";
 import { pullHubSpot } from "@/lib/ingest/hubspot-pull";
 import { pullTicketTailor } from "@/lib/ingest/ticket-tailor-pull";
+import { pullLearnWorlds } from "@/lib/ingest/learnworlds-pull";
 import { runLoop } from "@/lib/loop/run";
 import { refreshStrategyDocs } from "@/lib/strategy/confluence";
 import { createExperimentStory, transitionTo } from "@/lib/jira/client";
@@ -38,12 +39,13 @@ export async function refreshStrategyDocsNow() {
 const PULLS = {
   hubspot: { configured: isHubSpotConfigured, envVar: "HUBSPOT_ACCESS_TOKEN", pull: () => pullHubSpot() },
   ticket_tailor: { configured: isTicketTailorConfigured, envVar: "TICKET_TAILOR_API_KEY", pull: () => pullTicketTailor() },
+  learnworlds: { configured: isLearnWorldsConfigured, envVar: "LEARNWORLDS_SCHOOL_URL, LEARNWORLDS_CLIENT_ID and LEARNWORLDS_CLIENT_SECRET", pull: () => pullLearnWorlds() },
 } as const;
 export type PulledSource = keyof typeof PULLS;
 
 export async function pullSourceNow(source: PulledSource) {
   if (!isSupabaseConfigured()) return { ok: false as const, error: "Supabase is not configured yet" };
-  const p = PULLS[z.enum(["hubspot", "ticket_tailor"]).parse(source)];
+  const p = PULLS[z.enum(["hubspot", "ticket_tailor", "learnworlds"]).parse(source)];
   if (!p.configured()) return { ok: false as const, error: `Add ${p.envVar} to the Vercel project first` };
   const res = await p.pull();
   revalidatePath("/", "layout");
