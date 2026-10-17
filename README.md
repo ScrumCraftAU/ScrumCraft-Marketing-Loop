@@ -115,7 +115,7 @@ metrics with `date`, so that request asks for 20 named single-day ranges (`2days
 Metrics & sources), using `HUBSPOT_ACCESS_TOKEN`, `TICKET_TAILOR_API_KEY` and `LEARNWORLDS_SCHOOL_URL` / `LEARNWORLDS_CLIENT_ID` /
 `LEARNWORLDS_CLIENT_SECRET` (client-credentials token per pull). LearnWorlds counts paid, non-refunded payments and leaves out
 "Added by admin" enrolments, which are usually invoiced and already a HubSpot deal. Days are Adelaide days; the first pull
-backfills 42 days, later pulls refresh the last 14. Other sources use the generic format below.
+backfills 42 days (LearnWorlds: a year), later pulls refresh the last 14. Other sources use the generic format below.
 
 ```
 POST /api/ingest/<source>            # source = ga4 | linkedin_ads | meta_ads | hubspot | ticket_tailor | seo

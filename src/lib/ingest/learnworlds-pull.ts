@@ -5,6 +5,7 @@ import { paymentsToObservations, type LwPayment } from "./learnworlds";
 import { defaultDayCount, recordPullError, storePull } from "./store";
 
 const MAX_PAGES = 25; // 200 payments a page; far above our volume, but bounded
+const FIRST_PULL_DAYS = 365; // Academy sales are sparse, so the first pull backfills a year as a baseline
 
 const base = () => env.learnWorldsSchoolUrl.replace(/\/+$/, "");
 
@@ -31,7 +32,7 @@ async function accessToken(): Promise<string> {
  */
 export async function pullLearnWorlds(dayCount?: number): Promise<{ ok: boolean; stored: number; days: number; warnings: string[]; error?: string }> {
   if (!isLearnWorldsConfigured()) return { ok: false, stored: 0, days: 0, warnings: [], error: "LEARNWORLDS_SCHOOL_URL, LEARNWORLDS_CLIENT_ID or LEARNWORLDS_CLIENT_SECRET is not set" };
-  const days = lastDays(dayCount ?? (await defaultDayCount("learnworlds")));
+  const days = lastDays(dayCount ?? ((await defaultDayCount("learnworlds")) === 14 ? 14 : FIRST_PULL_DAYS));
   const from = Math.floor(adelaideMidnight(days[0]) / 1000);
   const to = Math.floor(adelaideMidnight(adelaideDay(adelaideMidnight(days[days.length - 1]) + 36 * 3_600_000)!) / 1000);
   const warnings: string[] = [];
@@ -48,6 +49,12 @@ export async function pullLearnWorlds(dayCount?: number): Promise<{ ok: boolean;
         cache: "no-store",
         signal: AbortSignal.timeout(20_000),
       });
+      // LearnWorlds answers an empty result with 404 {"error":"Payments not found"}.
+      if (res.status === 404) {
+        const text = await res.text();
+        if (/not found/i.test(text)) break;
+        throw new Error(`LearnWorlds 404 on /v2/payments: ${text.slice(0, 300)}`);
+      }
       if (!res.ok) throw new Error(`LearnWorlds ${res.status} on /v2/payments: ${(await res.text()).slice(0, 300)}`);
       const body = (await res.json()) as { data?: LwPayment[]; meta?: { totalPages?: number } };
       payments.push(...(body.data ?? []));
