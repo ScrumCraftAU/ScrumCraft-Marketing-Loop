@@ -5,8 +5,9 @@
  * Counting rules (LearnWorlds is the source of truth for Academy sales):
  *   - a sale    = a payment with a price above 0 that has been paid and not refunded
  *   - revenue   = the payment's price (AUD, as LearnWorlds reports it)
- *   - "Added by admin" payments are manual enrolments (often invoiced and already a HubSpot
- *     deal), so they are left out to avoid counting the same money twice
+ *   - "Added by admin" payments are manual enrolments, e.g. learners on a private instructor-led
+ *     course, which is a HubSpot deal (agreed 20 Oct 2026), so they are left out to avoid counting
+ *     the same money twice
  *   - payments in EXCLUDED_PAYMENTS (tests and team-member purchases) are left out
  * Each payment counts on the Adelaide day it was paid (created, if no paid date).
  */
