@@ -120,7 +120,7 @@ Metrics & sources), using `HUBSPOT_ACCESS_TOKEN`, `TICKET_TAILOR_API_KEY` and `L
 "Added by admin" enrolments, which are usually invoiced and already a HubSpot deal.
 **Each sale is recorded in one place** (agreed 18 and 20 Oct 2026): public instructor-led courses in Ticket Tailor,
 self-paced courses in LearnWorlds (no HubSpot deal added by hand), private instructor-led courses and contract work as
-HubSpot deals. The two deals that were (`EXCLUDED_DEALS` in `src/lib/ingest/hubspot.ts`) are left out of every HubSpot deal metric. Days are Adelaide days; the first pull
+HubSpot deals. Two self-paced sales that were added as deals before then (`EXCLUDED_DEALS` in `src/lib/ingest/hubspot.ts`) are left out of every HubSpot deal metric. Days are Adelaide days; the first pull
 backfills 42 days (LearnWorlds: a year), later pulls refresh the last 14. HubSpot also has a one-off
 **Backfill a year** button (shown until about a year of history is stored). Other sources use the generic format below.
 
