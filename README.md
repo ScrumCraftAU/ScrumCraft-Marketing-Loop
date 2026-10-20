@@ -68,6 +68,7 @@ Derived metrics (`paid.spend`, `paid.cost_per_booking`, `paid.roas`, …) are **
 | Awareness | Course page search clicks / impressions / position | `gsc.course_clicks`, `gsc.course_impressions`, `gsc.course_avg_position` | Search Console / derived |
 | Engagement | Engagement rate | `ga4.engagement_rate` | GA4 |
 | Engagement | Course page views | `ga4.course_page_views` | GA4 |
+| Engagement | Tagged campaign sessions / key events (by UTM campaign and button) | `ga4.campaign_sessions`, `ga4.campaign_key_events` | GA4 |
 | Engagement | LinkedIn clicks / Meta clicks | `linkedin_ads.clicks`, `meta_ads.clicks` | Ads |
 | Engagement | Marketing emails sent / opens / clicks | `hubspot.emails_sent`, `hubspot.email_opens`, `hubspot.email_clicks` | HubSpot |
 | Engagement | Email open rate / click rate | `hubspot.email_open_rate`, `hubspot.email_click_rate` | derived |
@@ -156,4 +157,4 @@ With no Supabase env set, every page renders a "not connected" state.
    for competitor and keyword research only, not as a feed
 5. Schedule the daily loop (Vercel Cron) and add a morning digest (email/Teams)
 6. ✅ Funnel targets set (MQLs, MQL-to-SQL, revenue); still to add: win rate and pipeline coverage (need closed-lost and open deal value in the HubSpot pull)
-7. Attribute visits and enrolments to the page and button that sent them (GA4 UTM report, SCM-204)
+7. ✅ Attribute visits to the page and button that sent them (GA4 UTM report, SCM-204; Metrics & sources shows the top campaigns and buttons)

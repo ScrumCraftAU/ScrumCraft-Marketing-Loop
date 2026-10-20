@@ -7,10 +7,11 @@
  * Windows: deals and Academy sales are lumpy, so sums are given for the last 7 and last 90 days
  * (with the first day that has data, since pulls only backfill 42 days to a year). Snapshot
  * metrics (aggregation "last", e.g. open pipeline) give the latest day's values instead.
- * Per-site GA4 numbers are left out (the loop gets them as web_properties).
+ * Per-site GA4 numbers are left out (the loop gets them as web_properties), except UTM campaigns:
+ * "site:academy|campaign:x|content:y" is kept as campaign "academy / x|content:y".
  */
 
-export const BREAKDOWN_PREFIXES = ["source", "reason", "course", "channel", "page"] as const;
+export const BREAKDOWN_PREFIXES = ["source", "reason", "course", "channel", "page", "campaign"] as const;
 export const SKIP_METRICS = new Set(["gsc.position_weight"]); // only meaningful divided by impressions
 export const LONG_WINDOW_DAYS = 90;
 export const TOP_N = 10;
@@ -33,6 +34,12 @@ export interface Breakdown {
   other_total: number;
 }
 
+/** "site:academy|campaign:x|content:y" → "campaign:academy / x|content:y"; anything else unchanged. */
+function siteCampaign(r: BreakdownRow): BreakdownRow {
+  const m = /^site:([^|]+)\|campaign:(.+)$/.exec(r.dimension);
+  return m ? { ...r, dimension: `campaign:${m[1]} / ${m[2]}` } : r;
+}
+
 const addDays = (day: string, n: number) => {
   const d = new Date(`${day}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() + n);
@@ -41,7 +48,8 @@ const addDays = (day: string, n: number) => {
 
 export function summariseBreakdowns(rows: BreakdownRow[], aggregation: Map<string, string>, asOf: string): Breakdown[] {
   const groups = new Map<string, BreakdownRow[]>(); // metric_key \0 prefix
-  for (const r of rows) {
+  for (const raw of rows) {
+    const r = siteCampaign(raw);
     const prefix = r.dimension.split(":", 1)[0];
     if (SKIP_METRICS.has(r.metric_key) || !(BREAKDOWN_PREFIXES as readonly string[]).includes(prefix) || r.date > asOf) continue;
     const k = `${r.metric_key}\u0000${prefix}`;

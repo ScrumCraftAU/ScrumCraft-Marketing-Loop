@@ -9,6 +9,7 @@
  *   [date, pagePath]                    screenPageViews → course / checkout page views
  *   [date, eventName]                   eventCount      → conversion events
  *   [date, landingPagePlusQueryString]  organicGoogleSearch* → Search Console (main site only)
+ *   [date, sessionCampaignName, sessionManualAdContent]  sessions, keyEvents → UTM campaign × button
  *
  * Kept dependency-free so it can be unit-tested with plain `node --test`.
  */
@@ -72,6 +73,8 @@ export function batchRequestBody(startDate = "42daysAgo") {
       { dateRanges: range, dimensions: [{ name: "date" }, { name: "sessionDefaultChannelGroup" }], metrics: [{ name: "sessions" }], limit: 10000 },
       { dateRanges: range, dimensions: [{ name: "date" }, { name: "pagePath" }], metrics: [{ name: "screenPageViews" }], limit: 100000 },
       { dateRanges: range, dimensions: [{ name: "date" }, { name: "eventName" }], metrics: [{ name: "eventCount" }], limit: 10000 },
+      // UTM campaign × utm_content (which page and button sent the visit, SCM-204)
+      { dateRanges: range, dimensions: [{ name: "date" }, { name: "sessionCampaignName" }, { name: "sessionManualAdContent" }], metrics: [{ name: "sessions" }, { name: "keyEvents" }], limit: 10000 },
     ],
   };
 }
@@ -152,6 +155,20 @@ function tryParse(s: string): unknown {
   } catch {
     return null;
   }
+}
+
+/** GA4's placeholder campaign names for untagged traffic: "(direct)", "(organic)", "(referral)", "(not set)". */
+const UNTAGGED = /^\(.*\)$/;
+
+/**
+ * Dimension for a UTM campaign and utm_content (button), lower-cased so tag case doesn't split a
+ * button in two; "campaign:<name>" alone when the link has no utm_content.
+ */
+export function campaignDimension(campaign: string, content: string): string | null {
+  const name = campaign.trim().toLowerCase();
+  if (!name || UNTAGGED.test(name)) return null;
+  const button = content.trim().toLowerCase();
+  return !button || UNTAGGED.test(button) ? `campaign:${name}` : `campaign:${name}|content:${button}`;
 }
 
 /** "/scrumatscale/?utm_source=x" or "https://scrumcraft.com/scrumatscale/#faq" → "/scrumatscale/". */
@@ -257,6 +274,16 @@ export function parseGa4(
           add("gsc.course_clicks", date, dim(), clicks);
           add("gsc.course_impressions", date, dim(), impressions);
           add("gsc.course_position_weight", date, dim(), weight);
+        }
+      } else if (shape === "sessionCampaignName,sessionManualAdContent" && mets.includes("sessions")) {
+        // Only tagged campaigns; the site total is the tagged sessions, the dimension says which button.
+        const content = row.dimensionValues[dims.indexOf("sessionManualAdContent")]?.value ?? "";
+        const d = campaignDimension(second, content);
+        if (!d) continue;
+        for (const [metric, key] of [["sessions", "ga4.campaign_sessions"], ["keyEvents", "ga4.campaign_key_events"]] as const) {
+          if (!mets.includes(metric)) continue;
+          add(key, date, dim(), val(metric));
+          add(key, date, dim(d), val(metric));
         }
       } else if (shape === "eventName" && mets.includes("eventCount")) {
         const key = EVENT_METRICS[second];

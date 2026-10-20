@@ -4,7 +4,7 @@ import { LONG_WINDOW_DAYS, summariseBreakdowns, type BreakdownRow } from "./brea
 
 const PAGE = 1000; // Supabase returns at most 1,000 rows per request
 
-/** Loads the last 90 days of non-total observations (except per-site GA4) and summarises them. */
+/** Loads the last 90 days of non-total observations (except per-site GA4, bar UTM campaigns) and summarises them. */
 export async function computeBreakdowns(asOf: string) {
   const from = new Date(`${asOf}T00:00:00Z`);
   from.setUTCDate(from.getUTCDate() - LONG_WINDOW_DAYS);
@@ -17,7 +17,7 @@ export async function computeBreakdowns(asOf: string) {
       .from("metric_observations")
       .select("metric_key, date, dimension, value")
       .neq("dimension", "")
-      .not("dimension", "like", "site:%")
+      .or("dimension.not.like.site:*,dimension.like.*|campaign:*")
       .gt("date", from.toISOString().slice(0, 10))
       .lte("date", asOf)
       .order("date")

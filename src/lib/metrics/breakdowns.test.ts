@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { summariseBreakdowns, type BreakdownRow } from "./breakdowns.ts";
 
 const agg = new Map([
+  ["ga4.campaign_sessions", "sum"],
   ["hubspot.won_revenue", "sum"],
   ["hubspot.open_pipeline_value", "last"],
   ["ga4.sessions", "sum"],
@@ -44,4 +45,15 @@ test("keeps the top 10 labels and rolls the rest into other_total", () => {
   assert.equal(b.values[0].value, 12);
   assert.equal(b.others, 2);
   assert.equal(b.other_total, 3);
+});
+
+test("site-scoped UTM campaigns are kept, labelled with their site", () => {
+  const rows: BreakdownRow[] = [
+    { metric_key: "ga4.campaign_sessions", date: "2026-10-16", dimension: "site:academy|campaign:rsb_page|content:hero_enrol", value: 5 },
+    { metric_key: "ga4.campaign_sessions", date: "2026-10-16", dimension: "site:academy", value: 5 },
+    { metric_key: "ga4.campaign_sessions", date: "2026-10-16", dimension: "campaign:newsletter", value: 3 },
+  ];
+  const b = summariseBreakdowns(rows, agg, "2026-10-16").find((x) => x.metric_key === "ga4.campaign_sessions" && x.window === "last_7_days")!;
+  assert.equal(b.by, "campaign");
+  assert.deepEqual(b.values, [{ label: "academy / rsb_page|content:hero_enrol", value: 5 }, { label: "newsletter", value: 3 }]);
 });

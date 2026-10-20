@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { COURSE_PAGE, CHECKOUT_PAGE, extractReports, findZapierFileLink, landingPath, parseGa4, relativeDay, searchConsoleRequestBody } from "./ga4.ts";
+import { COURSE_PAGE, CHECKOUT_PAGE, batchRequestBody, campaignDimension, extractReports, findZapierFileLink, landingPath, parseGa4, relativeDay, searchConsoleRequestBody } from "./ga4.ts";
 
 // Real batchRunReports output for www.scrumcraft.com (25–26 Sep 2026), as Zapier returns it.
 const fixture = JSON.parse(readFileSync(new URL("./fixtures/ga4-batch.json", import.meta.url), "utf8"));
@@ -146,4 +146,31 @@ test("named date ranges resolve against the property's today, and the request co
   const names = searchConsoleRequestBody().requests.flatMap((r) => r.dateRanges.map((d) => d.name));
   assert.equal(names.length, 20);
   assert.deepEqual([names[0], names[19]], ["2daysAgo", "21daysAgo"]);
+});
+
+test("UTM campaign × button report: tagged sessions and key events per site (SCM-204)", () => {
+  const report = {
+    dimensionHeaders: [{ name: "date" }, { name: "sessionCampaignName" }, { name: "sessionManualAdContent" }],
+    metricHeaders: [{ name: "sessions" }, { name: "keyEvents" }],
+    rows: [
+      { dimensionValues: [{ value: "20261014" }, { value: "RSB_page" }, { value: "hero_enrol" }], metricValues: [{ value: "5" }, { value: "1" }] },
+      { dimensionValues: [{ value: "20261014" }, { value: "rsb_page" }, { value: "faq_enrol" }], metricValues: [{ value: "2" }, { value: "0" }] },
+      { dimensionValues: [{ value: "20261014" }, { value: "newsletter" }, { value: "(not set)" }], metricValues: [{ value: "3" }, { value: "0" }] },
+      { dimensionValues: [{ value: "20261014" }, { value: "(direct)" }, { value: "(not set)" }], metricValues: [{ value: "40" }, { value: "2" }] },
+      { dimensionValues: [{ value: "20261014" }, { value: "(organic)" }, { value: "(not set)" }], metricValues: [{ value: "9" }, { value: "0" }] },
+    ],
+  };
+  const { observations: obs, warnings } = parseGa4({ reports: [report] }, "academy");
+  assert.deepEqual(warnings, []);
+  assert.equal(find(obs, "ga4.campaign_sessions", "2026-10-14", "site:academy"), 10);
+  assert.equal(find(obs, "ga4.campaign_key_events", "2026-10-14", "site:academy"), 1);
+  assert.equal(find(obs, "ga4.campaign_sessions", "2026-10-14", "site:academy|campaign:rsb_page|content:hero_enrol"), 5);
+  assert.equal(find(obs, "ga4.campaign_sessions", "2026-10-14", "site:academy|campaign:rsb_page|content:faq_enrol"), 2);
+  assert.equal(find(obs, "ga4.campaign_sessions", "2026-10-14", "site:academy|campaign:newsletter"), 3);
+  assert.equal(obs.some((o) => o.dimension.includes("(direct)") || o.dimension.includes("(organic)")), false);
+  assert.equal(campaignDimension("(referral)", "x"), null);
+  // the Zap's step 3 batch now has 5 requests (the API maximum), the last one this report
+  const reqs = batchRequestBody().requests;
+  assert.equal(reqs.length, 5);
+  assert.deepEqual(reqs[4].dimensions.map((d) => d.name), ["date", "sessionCampaignName", "sessionManualAdContent"]);
 });
