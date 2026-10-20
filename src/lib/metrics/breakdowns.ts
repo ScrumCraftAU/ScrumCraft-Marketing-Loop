@@ -11,7 +11,7 @@
  * "site:academy|campaign:x|content:y" is kept as campaign "academy / x|content:y".
  */
 
-export const BREAKDOWN_PREFIXES = ["source", "reason", "course", "channel", "page", "campaign"] as const;
+export const BREAKDOWN_PREFIXES = ["source", "reason", "course", "channel", "page", "campaign", "email"] as const;
 export const SKIP_METRICS = new Set(["gsc.position_weight"]); // only meaningful divided by impressions
 export const LONG_WINDOW_DAYS = 90;
 export const TOP_N = 10;

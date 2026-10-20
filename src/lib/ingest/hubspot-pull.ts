@@ -2,7 +2,19 @@ import "server-only";
 import { env, isHubSpotConfigured } from "@/lib/env";
 import type { Observation } from "./ga4";
 import { adelaideDay, adelaideMidnight, lastDays } from "./days";
-import { countByDay, countByDayAndDimension, parseEmailHistogram, pipelineSnapshot, sumByDay, sumByDayAndDimension, withoutExcludedDeals } from "./hubspot";
+import {
+  checkEmailBreakdown,
+  countByDay,
+  countByDayAndDimension,
+  emailObservations,
+  emailsToBreakDown,
+  parseEmailHistogram,
+  pipelineSnapshot,
+  sumByDay,
+  sumByDayAndDimension,
+  withoutExcludedDeals,
+  type MarketingEmail,
+} from "./hubspot";
 import { defaultDayCount, recordPullError, storePull } from "./store";
 
 const API = "https://api.hubapi.com";
@@ -181,6 +193,33 @@ export async function pullHubSpot(dayCount?: number): Promise<{ ok: boolean; sto
       const parsed = parseEmailHistogram(histogram, days);
       observations.push(...parsed.observations);
       warnings.push(...parsed.warnings);
+
+      // Per-email breakdown (dimension email:<name>), so the loop can tell which email worked.
+      try {
+        const emails: MarketingEmail[] = [];
+        let after: string | undefined;
+        for (let page = 0; page < 20; page++) {
+          const list = await hubspot<{ results?: MarketingEmail[]; paging?: { next?: { after?: string } } }>(
+            `/marketing/v3/emails?${new URLSearchParams({ limit: "100", isPublished: "true", ...(after ? { after } : {}) })}`,
+          );
+          emails.push(...(list.results ?? []));
+          after = list.paging?.next?.after;
+          if (!after) break;
+        }
+        const active = emailsToBreakDown(emails, new Date(from).toISOString());
+        const perEmail: Observation[] = [];
+        for (const email of active) {
+          const eq = new URLSearchParams(qs);
+          eq.append("emailIds", String(email.id));
+          perEmail.push(...emailObservations(await hubspot<unknown>(`/marketing/v3/emails/statistics/histogram?${eq}`), days, email));
+        }
+        const problem = checkEmailBreakdown(perEmail, parsed.observations);
+        if (problem) warnings.push(`marketing email breakdown: ${problem}`);
+        else observations.push(...perEmail);
+        raw.email_breakdown = { listed: emails.length, checked: active.length, with_activity: new Set(perEmail.map((o) => o.dimension)).size };
+      } catch (err) {
+        warnings.push(`marketing email breakdown: ${err instanceof Error ? err.message : String(err)}`);
+      }
     } catch (err) {
       // Email stats need the "content" scope; keep the CRM numbers even if this part fails.
       warnings.push(`marketing email stats: ${err instanceof Error ? err.message : String(err)}`);

@@ -145,3 +145,35 @@ export function parseEmailHistogram(payload: unknown, days: string[]): { observa
   });
   return { observations, warnings: [] };
 }
+
+/** A marketing email from GET /marketing/v3/emails. */
+export interface MarketingEmail {
+  id: string;
+  name?: string | null;
+  type?: string | null; // BATCH_EMAIL, AUTOMATED_EMAIL, …
+  publishDate?: string | null;
+}
+
+/**
+ * Emails that can have sends in the window: batch emails published from `fromIso` on, and every
+ * automated (workflow) email, which keeps sending long after it was published.
+ */
+export function emailsToBreakDown(emails: MarketingEmail[], fromIso: string): MarketingEmail[] {
+  return emails.filter((e) => /AUTOMATED/i.test(e.type ?? "") || (e.publishDate != null && e.publishDate >= fromIso));
+}
+
+/** One email's daily histogram as `email:<name>` observations (non-zero days only). */
+export function emailObservations(histogram: unknown, days: string[], email: MarketingEmail): Observation[] {
+  const label = (email.name ?? `email ${email.id}`).trim().toLowerCase() || `email ${email.id}`;
+  return parseEmailHistogram(histogram, days).observations.filter((o) => o.value !== 0).map((o) => ({ ...o, dimension: `email:${label}` }));
+}
+
+/**
+ * Guard against the per-email filter being ignored by the API: per-email sends can't add up to
+ * more than the daily total. Returns a warning (and the breakdown should be dropped) if they do.
+ */
+export function checkEmailBreakdown(perEmail: Observation[], totals: Observation[]): string | null {
+  const sum = (obs: Observation[]) => obs.filter((o) => o.metric_key === "hubspot.emails_sent").reduce((a, o) => a + o.value, 0);
+  const total = sum(totals), parts = sum(perEmail);
+  return parts > total * 1.02 + 1 ? `per-email sends (${parts}) exceed the daily total (${total}); breakdown dropped` : null;
+}

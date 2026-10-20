@@ -24,7 +24,7 @@ Triggers:
 
 Stats are computed deterministically in code (`src/lib/metrics/stats.ts`). Claude only receives weekly aggregates (`src/lib/loop/analyse.ts`), and the snapshot it saw is stored on each `loop_runs` row for audit.
 It also receives **breakdowns** (`src/lib/metrics/breakdowns.ts`): deals, revenue and pipeline by deal source, lost deals by reason,
-Academy sales by course, GA4 sessions by channel and Search Console by page (top 10 each), summed over the last 7 and 90 days, or the
+Academy sales by course, marketing emails by email, GA4 sessions by channel and by UTM campaign and button, and Search Console by page (top 10 each), summed over the last 7 and 90 days, or the
 latest snapshot for open pipeline. Deals are lumpy, so sources are judged on the 90-day view.
 
 ## Data model (`supabase/migrations/0001_initial.sql`)
@@ -70,7 +70,7 @@ Derived metrics (`paid.spend`, `paid.cost_per_booking`, `paid.roas`, …) are **
 | Engagement | Course page views | `ga4.course_page_views` | GA4 |
 | Engagement | Tagged campaign sessions / key events (by UTM campaign and button) | `ga4.campaign_sessions`, `ga4.campaign_key_events` | GA4 |
 | Engagement | LinkedIn clicks / Meta clicks | `linkedin_ads.clicks`, `meta_ads.clicks` | Ads |
-| Engagement | Marketing emails sent / opens / clicks | `hubspot.emails_sent`, `hubspot.email_opens`, `hubspot.email_clicks` | HubSpot |
+| Engagement | Marketing emails sent / opens / clicks (also per email, `email:<name>`) | `hubspot.emails_sent`, `hubspot.email_opens`, `hubspot.email_clicks` | HubSpot |
 | Engagement | Email open rate / click rate | `hubspot.email_open_rate`, `hubspot.email_click_rate` | derived |
 | Engagement | Paid CTR (blended) | `paid.ctr` | derived |
 | Conversion | Form submissions | `ga4.form_submits` | GA4 |

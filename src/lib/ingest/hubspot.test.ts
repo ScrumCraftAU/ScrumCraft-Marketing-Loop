@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { adelaideDay, adelaideMidnight, countByDay, countByDayAndDimension, lastDays, pipelineSnapshot, sumByDayAndDimension, parseEmailHistogram, sumByDay, withoutExcludedDeals } from "./hubspot.ts";
+import { adelaideDay, adelaideMidnight, countByDay, countByDayAndDimension, lastDays, pipelineSnapshot, sumByDayAndDimension, parseEmailHistogram, sumByDay, withoutExcludedDeals, checkEmailBreakdown, emailObservations, emailsToBreakDown } from "./hubspot.ts";
 
 test("Adelaide days and midnights, either side of daylight saving", () => {
   // 13 Oct 2026 is daylight time (UTC+10:30): midnight is 13:30 UTC the day before.
@@ -91,4 +91,29 @@ test("open pipeline is a snapshot on one day, overall and by source", () => {
 test("deals added by hand for LearnWorlds sales are left out", () => {
   const deals = [{ id: "49779082773" }, { id: "60070268588" }, { id: "65578234244" }];
   assert.deepEqual(withoutExcludedDeals(deals).map((d) => d.id), ["65578234244"]);
+});
+
+test("per-email breakdown: which emails, their daily counters, and the over-count guard", () => {
+  const days = ["2026-10-12", "2026-10-13"];
+  const emails = [
+    { id: "1", name: "Manufacturing PM Introduction", type: "BATCH_EMAIL", publishDate: "2026-07-08T08:00:00Z" },
+    { id: "2", name: "October newsletter", type: "BATCH_EMAIL", publishDate: "2026-10-12T22:00:00Z" },
+    { id: "3", name: "RSB welcome", type: "AUTOMATED_EMAIL", publishDate: "2025-01-01T00:00:00Z" },
+    { id: "4", name: "Draft", type: "BATCH_EMAIL", publishDate: null },
+  ];
+  assert.deepEqual(emailsToBreakDown(emails, "2026-10-11T13:30:00Z").map((e) => e.id), ["2", "3"]);
+
+  const hist = { results: [{ interval: { start: "2026-10-13T00:00:00Z" }, aggregations: { counters: { sent: 100, delivered: 98, open: 30, click: 4 } } }] };
+  const obs = emailObservations(hist, days, emails[1]);
+  const v = (k: string) => obs.find((o) => o.metric_key === k && o.date === "2026-10-13")?.value;
+  assert.equal(v("hubspot.emails_sent"), 100);
+  assert.equal(v("hubspot.email_opens"), 30);
+  assert.equal(obs[0].dimension, "email:october newsletter");
+  assert.equal(obs.some((o) => o.date === "2026-10-12"), false); // zero days are not stored
+
+  const totals = [{ metric_key: "hubspot.emails_sent", date: "2026-10-13", dimension: "", value: 120 }];
+  assert.equal(checkEmailBreakdown(obs, totals), null);
+  // the API ignored the email filter: every email came back with the full total
+  const twice = [...obs, ...obs.map((o) => ({ ...o, dimension: "email:rsb welcome" }))];
+  assert.match(checkEmailBreakdown(twice, totals) ?? "", /exceed/);
 });
