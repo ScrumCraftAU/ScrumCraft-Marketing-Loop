@@ -43,6 +43,24 @@ function topCampaigns(rows: { metric_key: string; dimension: string; value: numb
   return [...byKey.values()].sort((a, b) => b.sessions - a.sessions).slice(0, 20);
 }
 
+const EMAIL_DAYS = 28;
+const EMAIL_KEYS = { "hubspot.emails_sent": "sent", "hubspot.emails_delivered": "delivered", "hubspot.email_opens": "opens", "hubspot.email_clicks": "clicks" } as const;
+
+/** Per-email rows ("email:<name>") summed over the window, with open and click-through rates on delivered. */
+function emailTable(rows: { metric_key: string; dimension: string; value: number | string }[]) {
+  const byEmail = new Map<string, { name: string; sent: number; delivered: number; opens: number; clicks: number }>();
+  for (const r of rows) {
+    const field = EMAIL_KEYS[r.metric_key as keyof typeof EMAIL_KEYS];
+    if (!field) continue;
+    const cur = byEmail.get(r.dimension) ?? { name: r.dimension.slice("email:".length), sent: 0, delivered: 0, opens: 0, clicks: 0 };
+    cur[field] += Number(r.value);
+    byEmail.set(r.dimension, cur);
+  }
+  return [...byEmail.values()].sort((a, b) => b.sent - a.sent);
+}
+
+const pct = (n: number, d: number) => (d > 0 ? `${Math.round((n / d) * 1000) / 10}%` : "—");
+
 export const dynamic = "force-dynamic";
 export const maxDuration = 300; // "Pull now" and the year-long HubSpot backfill run on this route
 
@@ -56,7 +74,8 @@ export default async function MetricsPage() {
   if (!isSupabaseConfigured()) return <div className="space-y-6">{header}<NotConfigured /></div>;
 
   const weekAgo = subDays(new Date(), CAMPAIGN_DAYS).toISOString().slice(0, 10);
-  const [{ data: sources }, { data: metrics }, { data: docs }, { data: freshness }, { data: firstHubSpot }, { data: campaignRows }] = await Promise.all([
+  const emailFrom = subDays(new Date(), EMAIL_DAYS).toISOString().slice(0, 10);
+  const [{ data: sources }, { data: metrics }, { data: docs }, { data: freshness }, { data: firstHubSpot }, { data: campaignRows }, { data: emailRows }] = await Promise.all([
     db().from("sources").select("*").order("id"),
     db().from("metrics").select("*").order("sort_order"),
     db().from("strategy_docs").select("*").order("sort_order"),
@@ -69,8 +88,16 @@ export default async function MetricsPage() {
       .like("dimension", "%campaign:%")
       .gte("date", weekAgo)
       .limit(5000),
+    db()
+      .from("metric_observations")
+      .select("metric_key, dimension, value")
+      .in("metric_key", Object.keys(EMAIL_KEYS))
+      .like("dimension", "email:%")
+      .gte("date", emailFrom)
+      .limit(5000),
   ]);
   const campaigns = topCampaigns(campaignRows ?? []);
+  const emails = emailTable(emailRows ?? []);
   const latest = new Map((freshness ?? []).map((f) => [f.metric_key as string, f.latest_date as string]));
   const today = new Date().toISOString().slice(0, 10);
   // Offer the one-off HubSpot backfill until about a year of history is stored.
@@ -135,6 +162,47 @@ export default async function MetricsPage() {
                     <TableCell>{c.button}</TableCell>
                     <TableCell className="text-right">{c.sessions}</TableCell>
                     <TableCell className="text-right">{c.keyEvents}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </section>
+
+      <section className="space-y-2">
+        <div>
+          <h2 className="text-lg font-bold">Marketing emails</h2>
+          <p className="text-sm text-muted-foreground">
+            HubSpot marketing emails with sends in the last {EMAIL_DAYS} days. Open and click-through rates are on delivered emails.
+          </p>
+        </div>
+        {emails.length === 0 ? (
+          <p className="rounded-lg border p-3 text-sm text-muted-foreground">No marketing emails sent in the last {EMAIL_DAYS} days.</p>
+        ) : (
+          <div className="overflow-x-auto rounded-lg border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Email</TableHead>
+                  <TableHead className="text-right">Sent</TableHead>
+                  <TableHead className="text-right">Delivered</TableHead>
+                  <TableHead className="text-right">Opens</TableHead>
+                  <TableHead className="text-right">Clicks</TableHead>
+                  <TableHead className="text-right">Open rate</TableHead>
+                  <TableHead className="text-right">Click-through rate</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {emails.map((e) => (
+                  <TableRow key={e.name}>
+                    <TableCell className="font-medium">{e.name}</TableCell>
+                    <TableCell className="text-right">{e.sent}</TableCell>
+                    <TableCell className="text-right">{e.delivered}</TableCell>
+                    <TableCell className="text-right">{e.opens}</TableCell>
+                    <TableCell className="text-right">{e.clicks}</TableCell>
+                    <TableCell className="text-right">{pct(e.opens, e.delivered)}</TableCell>
+                    <TableCell className="text-right">{pct(e.clicks, e.delivered)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
