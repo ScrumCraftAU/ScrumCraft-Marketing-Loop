@@ -107,6 +107,8 @@ Retired: `seo.keywords_top10` and `seo.avg_position` (Semrush, replaced by `gsc.
 
 Funnel stages (Subscriber → Lead → MQL → SQL → Opportunity → Customer), the MQL rule and the deal stages are defined in Confluence: **Lead & Deal Stage Definitions** (STS page 633274369, owner Operations, changes approved by Jason at the weekly Marketing Measurement Review). Company and product targets live on the **Operations Role Comparison Map** (page 290357264) and strategic goals in Jira Goals. Only the marketing-funnel targets are stored here (`metrics.target_value`, migration 0015). When a HubSpot definition changes, update the matching metric in the same change.
 
+Since 22 Oct 2026, MQLs are set automatically. The HubSpot workflow "Lead → MQL (SCM-220)" sets Lifecycle stage to MQL, and Lead status to New, whenever a contact joins the active segment "MQL – qualifying contacts" (432). Daizy follows them up from the "New MQLs – to follow up" segment (436). `hubspot.mqls` counts contacts by the date they entered MQL (`hs_v2_date_entered_marketingqualifiedlead`), so it reads 0 before that day.
+
 ## Ingesting data (Zapier and other push sources)
 
 **GA4** is one daily Zap that forwards raw GA4 reports for 7 properties. Setup: [docs/ga4-zap.md](docs/ga4-zap.md).
@@ -156,5 +158,5 @@ With no Supabase env set, every page renders a "not connected" state.
 4. LinkedIn / Meta ads via Zapier; SEO via Search Console through the GA4 link (`gsc.*`). Semrush is kept
    for competitor and keyword research only, not as a feed
 5. Schedule the daily loop (Vercel Cron) and add a morning digest (email/Teams)
-6. ✅ Funnel targets set (MQLs, MQL-to-SQL, revenue); still to add: win rate and pipeline coverage (need closed-lost and open deal value in the HubSpot pull)
+6. ✅ Funnel targets set (MQLs, MQL-to-SQL, revenue); still to add: win rate and pipeline coverage (need closed-lost and open deal value in the HubSpot pull). ✅ MQL workflow live in HubSpot (SCM-220, 22 Oct 2026)
 7. ✅ Attribute visits to the page and button that sent them (GA4 UTM report, SCM-204; Metrics & sources shows the top campaigns and buttons)
