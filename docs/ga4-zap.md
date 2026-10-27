@@ -87,8 +87,9 @@ after Google collects it, hence starting 2 days back; each run refreshes the las
 ## Notes
 - The main-site property 552676870 reports in **Adelaide time** (checked 13 Oct 2026). The retired
   legacy property 317178274 ran on Los Angeles time, so its "days" ended at 5:30pm Adelaide.
-- The main site is tagged by Site Kit's Google tag **GT-WF6488B**, which sends one `page_view` per
-  load to the main stream G-CJDDMN02SK (checked 13 Oct 2026). A leftover `gtag('config',
-  'G-N3SL34FSQ2')` snippet for the retired 317178274 is still in the page but sends nothing (SCM-191).
+- The main site is tagged by Site Kit's Google tag **GT-WF6488B**, whose only destination is the
+  main stream G-CJDDMN02SK. Until 27 Oct 2026 the retired 317178274 was also fed twice, by Jetpack
+  Google Analytics (G-N3SL34FSQ2) and by a second GT-WF6488B destination (G-KBHKX9G7NX). Both were
+  removed in SCM-191.
 - The property's only configured key event is `reduced_bounce_rate`, so the app uses
   `form_submit` events and checkout page views as conversion signals instead.
