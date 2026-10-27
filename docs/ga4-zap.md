@@ -32,8 +32,14 @@ it can get past SSO. You'll also need the `INGEST_SECRET` value.
 | 538155047 | thinkwithclarity.com.au | Clarity |
 | 552652741 | remarkabletalent.com.au | Remarkable Talent |
 
-Retired (do not send; the app answers 410): 317178274 (legacy www.scrumcraft.com GA4, Site Kit tag G-N3SL34FSQ2; migration 0005), 552648392 (scrumcraftacademy.com.au, 301-redirects to .com) and
-497876700 (Academy on LearnWorlds; its pre-3-Sep-2026 history was copied into 552638790). See migration 0004.
+Retired (do not send; the app answers 410). All three were renamed "[Retired] …" in GA4 on 27 Oct 2026 (SCM-192):
+- 317178274 (legacy www.scrumcraft.com GA4; migration 0005). Untagged since 27 Oct (SCM-191). It still holds the
+  Google Ads link, so it goes to the Trash after the link moves to 552676870 (SCM-247).
+- 552648392 (scrumcraftacademy.com.au, 301-redirects to .com). **In the GA4 Trash since 27 Oct 2026**, recoverable
+  until 1 Dec 2026.
+- 497876700 (Academy on LearnWorlds; its pre-3-Sep-2026 history was copied into 552638790, see migration 0004). Its
+  stream ID G-FFN95XZ5ZN is still the Google tag loaded on scrumcraftacademy.com, which forwards to G-2S585801JR
+  (552638790). Don't trash it until GTM-WSQ7TV4Q loads G-2S585801JR directly (SCM-247).
 
 To add or remove a property, update `sources.config` for `ga4` in Supabase **and** this list.
 
