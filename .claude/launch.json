@@ -1,6 +1,30 @@
 {
   "version": "0.0.1",
   "configurations": [
-    { "name": "dev", "runtimeExecutable": "npm", "runtimeArgs": ["run", "dev"], "port": 3000 }
+    {
+      "name": "dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
+      "port": 3000
+    },
+    {
+      "name": "sprint-charts",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "C:/Users/jason/repos/ScrumCraft-Team-Space/01-team-space/sprint-boundary/scripts/serve.mjs"
+      ],
+      "port": 8799
+    },
+    {
+      "name": "sprint-receiver",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "C:/Users/jason/repos/ScrumCraft-Team-Space/01-team-space/sprint-boundary/scripts/receiver.mjs"
+      ],
+      "port": 8798
+    }
   ]
 }
