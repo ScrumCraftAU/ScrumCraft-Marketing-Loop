@@ -12,7 +12,7 @@ export const maxDuration = 60;
  * Pushers (Zapier) → daily metric values. Two payload styles:
  *
  * 1. GA4 raw report (the GA4 Zap):
- *      POST /api/ingest/ga4?property=317178274
+ *      POST /api/ingest/ga4?property=552676870
  *      body = GA4 batchRunReports output, as-is (see src/lib/ingest/ga4.ts)
  *
  * 2. Generic flat rows (any source):
