@@ -13,6 +13,7 @@ import {
   sumByDay,
   sumByDayAndDimension,
   withoutExcludedDeals,
+  withoutMqlBackfills,
   type MarketingEmail,
 } from "./hubspot";
 import { defaultDayCount, recordPullError, storePull } from "./store";
@@ -122,7 +123,10 @@ export async function pullHubSpot(dayCount?: number): Promise<{ ok: boolean; sto
     observations.push(...newContacts);
     raw.new_contacts = newContacts.reduce((a, o) => a + o.value, 0);
 
-    const mqls = await searchAll("contacts", [between("hs_v2_date_entered_marketingqualifiedlead", from, to)], ["hs_v2_date_entered_marketingqualifiedlead"], warnings);
+    const mqls = withoutMqlBackfills(
+      await searchAll("contacts", [between("hs_v2_date_entered_marketingqualifiedlead", from, to)], ["hs_v2_date_entered_marketingqualifiedlead"], warnings),
+      "hs_v2_date_entered_marketingqualifiedlead",
+    );
     observations.push(...countByDay(mqls, "hs_v2_date_entered_marketingqualifiedlead", days, "hubspot.mqls"));
     const sqls = await searchAll("contacts", [between("hs_v2_date_entered_salesqualifiedlead", from, to)], ["hs_v2_date_entered_salesqualifiedlead"], warnings);
     observations.push(...countByDay(sqls, "hs_v2_date_entered_salesqualifiedlead", days, "hubspot.sqls"));

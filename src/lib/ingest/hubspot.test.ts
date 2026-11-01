@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { adelaideDay, adelaideMidnight, countByDay, countByDayAndDimension, lastDays, pipelineSnapshot, sumByDayAndDimension, parseEmailHistogram, sumByDay, withoutExcludedDeals, checkEmailBreakdown, emailObservations, emailsToBreakDown } from "./hubspot.ts";
+import { adelaideDay, adelaideMidnight, countByDay, countByDayAndDimension, lastDays, pipelineSnapshot, sumByDayAndDimension, parseEmailHistogram, sumByDay, withoutExcludedDeals, withoutMqlBackfills, checkEmailBreakdown, emailObservations, emailsToBreakDown } from "./hubspot.ts";
 
 test("Adelaide days and midnights, either side of daylight saving", () => {
   // 13 Oct 2026 is daylight time (UTC+10:30): midnight is 13:30 UTC the day before.
@@ -91,6 +91,18 @@ test("open pipeline is a snapshot on one day, overall and by source", () => {
 test("deals added by hand for LearnWorlds sales are left out", () => {
   const deals = [{ id: "49779082773" }, { id: "60070268588" }, { id: "65578234244" }];
   assert.deepEqual(withoutExcludedDeals(deals).map((d) => d.id), ["65578234244"]);
+});
+
+test("the SCM-220 MQL backfill is left out, MQLs either side of it count", () => {
+  const p = "hs_v2_date_entered_marketingqualifiedlead";
+  const contacts = [
+    { id: "a", properties: { [p]: "2026-10-27T16:04:47.259Z" } }, // in the backfill
+    { id: "b", properties: { [p]: String(Date.parse("2026-10-27T16:05:30.281Z")) } }, // in it, as epoch ms
+    { id: "c", properties: { [p]: "2026-10-27T15:59:59.000Z" } },
+    { id: "d", properties: { [p]: "2026-10-29T02:10:00.000Z" } },
+    { id: "e", properties: { [p]: null } },
+  ];
+  assert.deepEqual(withoutMqlBackfills(contacts, p).map((c) => c.id), ["c", "d", "e"]);
 });
 
 test("per-email breakdown: which emails, their daily counters, and the over-count guard", () => {

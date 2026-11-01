@@ -21,6 +21,22 @@ export const EXCLUDED_DEALS: Record<string, string> = {
 
 export const withoutExcludedDeals = <T extends { id: string }>(deals: T[]) => deals.filter((d) => !(String(d.id) in EXCLUDED_DEALS));
 
+/**
+ * One-off MQL backfills left out of hubspot.mqls. When the "Lead → MQL (SCM-220)" workflow first
+ * enrolled the existing segment, 328 contacts created July–August 2026 became MQLs within a minute
+ * (2:34–2:35 am Adelaide, 28 Oct 2026). That was a reclassification, not new demand. The contacts
+ * stay MQLs in HubSpot; only the metric skips them. If one later re-enters MQL, its new date counts.
+ */
+export const MQL_BACKFILLS: { from: string; to: string; note: string }[] = [
+  { from: "2026-10-27T16:00:00Z", to: "2026-10-27T16:15:00Z", note: "SCM-220 workflow first enrolment, 328 existing contacts" },
+];
+
+export const withoutMqlBackfills = <T extends { properties: Record<string, string | null | undefined> }>(contacts: T[], dateProp: string) =>
+  contacts.filter((c) => {
+    const at = c.properties[dateProp] ? new Date(/^\d+$/.test(c.properties[dateProp]!) ? Number(c.properties[dateProp]) : c.properties[dateProp]!).getTime() : NaN;
+    return !MQL_BACKFILLS.some((b) => at >= Date.parse(b.from) && at < Date.parse(b.to));
+  });
+
 /** Counts records per Adelaide day of `dateProp`, only for `days`, with zero-filled gaps. */
 export function countByDay(records: { properties: Record<string, string | null | undefined> }[], dateProp: string, days: string[], metric_key: string): Observation[] {
   const counts = new Map(days.map((d) => [d, 0]));
