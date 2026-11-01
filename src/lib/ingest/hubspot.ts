@@ -23,7 +23,7 @@ export const withoutExcludedDeals = <T extends { id: string }>(deals: T[]) => de
 
 /**
  * One-off MQL backfills left out of hubspot.mqls. When the "Lead → MQL (SCM-220)" workflow first
- * enrolled the existing segment, 328 contacts created July–August 2026 became MQLs within a minute
+ * enrolled the existing segment, 328 contacts created between 2022 and August 2026 became MQLs within a minute
  * (2:34–2:35 am Adelaide, 28 Oct 2026). That was a reclassification, not new demand. The contacts
  * stay MQLs in HubSpot; only the metric skips them. If one later re-enters MQL, its new date counts.
  */
