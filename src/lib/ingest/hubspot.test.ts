@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { adelaideDay, adelaideMidnight, countByDay, countByDayAndDimension, lastDays, pipelineSnapshot, sumByDayAndDimension, parseEmailHistogram, sumByDay, withoutExcludedDeals, withoutMqlBackfills, checkEmailBreakdown, emailObservations, emailsToBreakDown } from "./hubspot.ts";
+import { adelaideDay, adelaideMidnight, countByDay, countByDayAndDimension, intentSnapshot, lastDays, pipelineSnapshot, sumByDayAndDimension, parseEmailHistogram, sumByDay, withoutExcludedDeals, withoutMqlBackfills, checkEmailBreakdown, emailObservations, emailsToBreakDown } from "./hubspot.ts";
 
 test("Adelaide days and midnights, either side of daylight saving", () => {
   // 13 Oct 2026 is daylight time (UTC+10:30): midnight is 13:30 UTC the day before.
@@ -86,6 +86,29 @@ test("open pipeline is a snapshot on one day, overall and by source", () => {
   assert.equal(v("hubspot.weighted_pipeline_value"), 34400);
   assert.equal(v("hubspot.open_pipeline_value", "source:referral"), 25999);
   assert.equal(pipelineSnapshot([], "2026-10-16").find((o) => o.metric_key === "hubspot.open_deals")?.value, 0);
+});
+
+test("Buyer Intent is a snapshot on one day, overall and by company", () => {
+  const companies = [
+    { properties: { name: "Australia Post", hs_recent_intent_signals: "4-9304136;4-5470332;4-5470329", hs_intent_visitors_last_30_days: "2", hs_intent_page_views_last_30_days: "2" } },
+    { properties: { name: "TAFE SA", hs_recent_intent_signals: "4-11038405", hs_intent_visitors_last_30_days: "0", hs_intent_page_views_last_30_days: "0" } },
+    { properties: { name: "SA Water", hs_recent_intent_signals: null, hs_intent_visitors_last_30_days: "1", hs_intent_page_views_last_30_days: "4" } },
+    { properties: { name: "Quiet Co", hs_recent_intent_signals: "", hs_intent_visitors_last_30_days: null, hs_intent_page_views_last_30_days: null } },
+  ];
+  const obs = intentSnapshot(companies, "2026-11-05");
+  const v = (key: string, dim = "") => obs.find((o) => o.metric_key === key && o.dimension === dim)?.value;
+  assert.ok(obs.every((o) => o.date === "2026-11-05"));
+  assert.equal(v("hubspot.intent_watchlist_companies"), 4);
+  assert.equal(v("hubspot.intent_companies_with_signals"), 2);
+  assert.equal(v("hubspot.intent_signal_types"), 4);
+  assert.equal(v("hubspot.intent_companies_visited"), 2);
+  assert.equal(v("hubspot.intent_tracked_visitors"), 3);
+  assert.equal(v("hubspot.intent_tracked_page_views"), 6);
+  assert.equal(v("hubspot.intent_signal_types", "company:australia post"), 3);
+  assert.equal(v("hubspot.intent_tracked_visitors", "company:australia post"), 2);
+  assert.equal(obs.some((o) => o.dimension === "company:quiet co"), false); // zero values aren't stored per company
+  // No tracked companies still gives zero totals, not a gap.
+  assert.equal(intentSnapshot([], "2026-11-05").find((o) => o.metric_key === "hubspot.intent_watchlist_companies")?.value, 0);
 });
 
 test("deals added by hand for LearnWorlds sales are left out", () => {

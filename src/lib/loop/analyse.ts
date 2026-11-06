@@ -31,9 +31,9 @@ The metric totals are for www.scrumcraft.com. web_properties breaks traffic down
 Clarity and Remarkable Talent are separate brands — never mix their numbers or voice with ScrumCraft's.
 breakdowns split metrics by dimension: source = HubSpot deal source (how the deal came about; "repeat /
 expansion" = an existing client), reason = closed-lost reason, course = Academy course, channel = GA4
-channel, page = Search Console landing page, campaign = UTM campaign and button (utm_content) that sent the visit, prefixed with the site it landed on; email = HubSpot marketing email (sent, opens, clicks per email).
+channel, page = Search Console landing page, campaign = UTM campaign and button (utm_content) that sent the visit, prefixed with the site it landed on; email = HubSpot marketing email (sent, opens, clicks per email); company = Buyer Intent tracked company (signal types, visitors and page views over a rolling 30 days). A tracked company with both signal types and visitors is worth raising as a finding.
 Sums cover the last 7 and last 90 days (data_from shows how far
-back data actually goes, often less than 90 days); "latest" is the open-pipeline snapshot. Use them to say
+back data actually goes, often less than 90 days); "latest" is a daily snapshot (open pipeline, Buyer Intent). Use them to say
 where revenue, pipeline and enrolments come from and which channels or courses to invest in. Deals are
 lumpy: judge sources on the 90-day view, not one week. Many lost deals are not recorded in HubSpot, so treat
 win rate as overstated.

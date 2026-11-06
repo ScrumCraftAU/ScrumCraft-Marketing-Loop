@@ -73,6 +73,7 @@ Derived metrics (`paid.spend`, `paid.cost_per_booking`, `paid.roas`, …) are **
 | Engagement | Marketing emails sent / opens / clicks (also per email, `email:<name>`) | `hubspot.emails_sent`, `hubspot.email_opens`, `hubspot.email_clicks` | HubSpot |
 | Engagement | Email open rate / click rate | `hubspot.email_open_rate`, `hubspot.email_click_rate` | derived |
 | Engagement | Paid CTR (blended) | `paid.ctr` | derived |
+| Engagement | Buyer Intent, daily snapshot of rolling 30 days (also per company, `company:<name>`) | `hubspot.intent_watchlist_companies`, `hubspot.intent_companies_with_signals`, `hubspot.intent_signal_types`, `hubspot.intent_companies_visited`, `hubspot.intent_tracked_visitors`, `hubspot.intent_tracked_page_views` | HubSpot company properties |
 | Conversion | Form submissions | `ga4.form_submits` | GA4 |
 | Conversion | Checkout page views | `ga4.checkout_views` | GA4 |
 | Conversion | New contacts | `hubspot.new_contacts` | HubSpot |

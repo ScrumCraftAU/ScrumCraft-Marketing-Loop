@@ -111,6 +111,48 @@ export function pipelineSnapshot(openDeals: { properties: Record<string, string 
   return [...totals.values()];
 }
 
+/**
+ * Buyer Intent on `day` (SCM-254), from company properties: HubSpot has no Buyer Intent API and keeps
+ * only rolling 30-day values, so this is a snapshot with aggregation "last". `companies` are those with
+ * intent signals active. Signal types, visitors and page views are also stored per company, so the
+ * loop can spot a company with both research signals and a site visit.
+ */
+export function intentSnapshot(companies: { properties: Record<string, string | null | undefined> }[], day: string): Observation[] {
+  const count = (v: string | null | undefined) => {
+    const n = Number(v ?? 0);
+    return Number.isFinite(n) ? n : 0;
+  };
+  const totals = { watchlist: companies.length, signals: 0, types: 0, visited: 0, visitors: 0, pageViews: 0 };
+  const perCompany: Observation[] = [];
+  const addCompany = (metric_key: string, name: string, value: number) => {
+    if (value > 0) perCompany.push({ metric_key, date: day, dimension: `company:${name}`, value });
+  };
+  for (const c of companies) {
+    const name = (c.properties.name ?? "unknown").trim().toLowerCase() || "unknown";
+    const types = new Set((c.properties.hs_recent_intent_signals ?? "").split(";").map((t) => t.trim()).filter(Boolean)).size;
+    const visitors = count(c.properties.hs_intent_visitors_last_30_days);
+    const pageViews = count(c.properties.hs_intent_page_views_last_30_days);
+    if (types > 0) totals.signals += 1;
+    if (visitors > 0) totals.visited += 1;
+    totals.types += types;
+    totals.visitors += visitors;
+    totals.pageViews += pageViews;
+    addCompany("hubspot.intent_signal_types", name, types);
+    addCompany("hubspot.intent_tracked_visitors", name, visitors);
+    addCompany("hubspot.intent_tracked_page_views", name, pageViews);
+  }
+  const total = (metric_key: string, value: number): Observation => ({ metric_key, date: day, dimension: "", value });
+  return [
+    total("hubspot.intent_watchlist_companies", totals.watchlist),
+    total("hubspot.intent_companies_with_signals", totals.signals),
+    total("hubspot.intent_signal_types", totals.types),
+    total("hubspot.intent_companies_visited", totals.visited),
+    total("hubspot.intent_tracked_visitors", totals.visitors),
+    total("hubspot.intent_tracked_page_views", totals.pageViews),
+    ...perCompany,
+  ];
+}
+
 /** Sums a numeric property per Adelaide day of `dateProp`, only for `days`, with zero-filled gaps. */
 export function sumByDay(records: { properties: Record<string, string | null | undefined> }[], dateProp: string, valueProp: string, days: string[], metric_key: string): Observation[] {
   const sums = new Map(days.map((d) => [d, 0]));

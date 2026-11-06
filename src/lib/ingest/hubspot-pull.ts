@@ -8,6 +8,7 @@ import {
   countByDayAndDimension,
   emailObservations,
   emailsToBreakDown,
+  intentSnapshot,
   parseEmailHistogram,
   pipelineSnapshot,
   sumByDay,
@@ -189,6 +190,20 @@ export async function pullHubSpot(dayCount?: number): Promise<{ ok: boolean; sto
     );
     observations.push(...pipelineSnapshot(open, days[days.length - 1]));
     raw.open_deals = open.length;
+
+    // Buyer Intent snapshot (SCM-254). Needs the companies read scope; keep the rest if this part fails.
+    try {
+      const tracked = await searchAll(
+        "companies",
+        [{ propertyName: "hs_intent_signals_enabled", operator: "EQ", value: "true" }],
+        ["name", "hs_recent_intent_signals", "hs_intent_visitors_last_30_days", "hs_intent_page_views_last_30_days"],
+        warnings,
+      );
+      observations.push(...intentSnapshot(tracked, days[days.length - 1]));
+      raw.intent_companies = tracked.length;
+    } catch (err) {
+      warnings.push(`buyer intent: ${err instanceof Error ? err.message : String(err)}`);
+    }
 
     try {
       const qs = new URLSearchParams({ interval: "DAY", startTimestamp: new Date(from).toISOString(), endTimestamp: new Date(to).toISOString() });
