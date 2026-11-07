@@ -74,6 +74,8 @@ Derived metrics (`paid.spend`, `paid.cost_per_booking`, `paid.roas`, …) are **
 | Engagement | Email open rate / click rate | `hubspot.email_open_rate`, `hubspot.email_click_rate` | derived |
 | Engagement | Paid CTR (blended) | `paid.ctr` | derived |
 | Engagement | Buyer Intent, daily snapshot of rolling 30 days (also per company, `company:<name>`) | `hubspot.intent_watchlist_companies`, `hubspot.intent_companies_with_signals`, `hubspot.intent_signal_types`, `hubspot.intent_companies_visited`, `hubspot.intent_tracked_visitors`, `hubspot.intent_tracked_page_views` | HubSpot company properties |
+| Awareness, Engagement | LinkedIn organic, by day posted (also `channel:<page>` and `post:<id>`) | `linkedin_organic.posts`, `.impressions`, `.likes`, `.comments`, `.shares` | Daily Claude task, HubSpot connector, `ingest_linkedin_posts()` |
+| Awareness | AI visibility, daily snapshot of rolling 7 days (also `stream:`, `persona:`, `assistant:`, `prompt:`, `brand:`) | `aeo.visibility`, `aeo.share_of_voice`, `aeo.mentions`, `aeo.responses`, `aeo.owned_citations` | Daily Claude task, HubSpot connector, `ingest_aeo_snapshot()` |
 | Conversion | Form submissions | `ga4.form_submits` | GA4 |
 | Conversion | Checkout page views | `ga4.checkout_views` | GA4 |
 | Conversion | New contacts | `hubspot.new_contacts` | HubSpot |

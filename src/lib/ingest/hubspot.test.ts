@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { adelaideDay, adelaideMidnight, countByDay, countByDayAndDimension, intentSnapshot, lastDays, pipelineSnapshot, summariseProbe, sumByDayAndDimension, parseEmailHistogram, sumByDay, withoutExcludedDeals, withoutMqlBackfills, checkEmailBreakdown, emailObservations, emailsToBreakDown } from "./hubspot.ts";
+import { adelaideDay, adelaideMidnight, countByDay, countByDayAndDimension, intentSnapshot, lastDays, pipelineSnapshot, sumByDayAndDimension, parseEmailHistogram, sumByDay, withoutExcludedDeals, withoutMqlBackfills, checkEmailBreakdown, emailObservations, emailsToBreakDown } from "./hubspot.ts";
 
 test("Adelaide days and midnights, either side of daylight saving", () => {
   // 13 Oct 2026 is daylight time (UTC+10:30): midnight is 13:30 UTC the day before.
@@ -109,19 +109,6 @@ test("Buyer Intent is a snapshot on one day, overall and by company", () => {
   assert.equal(obs.some((o) => o.dimension === "company:quiet co"), false); // zero values aren't stored per company
   // No tracked companies still gives zero totals, not a gap.
   assert.equal(intentSnapshot([], "2026-11-05").find((o) => o.metric_key === "hubspot.intent_watchlist_companies")?.value, 0);
-});
-
-test("an API probe keeps the reply's shape but none of its values", () => {
-  const reply = { broadcasts: [{ broadcastGuid: "abc", content: { body: "Private post text" }, clicks: 12, stats: { likes: 3 } }] };
-  const summary = summariseProbe(reply);
-  assert.equal(summary.items, 1);
-  assert.deepEqual(summary.fields, ["broadcastGuid", "clicks", "content", "stats"]);
-  assert.deepEqual(summary.nested, { content: ["body"], stats: ["likes"] });
-  assert.equal(JSON.stringify(summary).includes("Private post text"), false);
-  assert.equal(JSON.stringify(summary).includes("abc"), false);
-  assert.equal(summariseProbe([{ a: 1 }, { a: 2 }]).items, 2);
-  assert.equal(summariseProbe({ a: 1 }).items, null);
-  assert.deepEqual(summariseProbe(null).fields, []);
 });
 
 test("deals added by hand for LearnWorlds sales are left out", () => {

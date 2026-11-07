@@ -23,7 +23,7 @@ export interface Metric {
 export interface Source {
   id: string;
   name: string;
-  ingest_method: "zapier_webhook" | "api_pull" | "manual";
+  ingest_method: "zapier_webhook" | "api_pull" | "manual" | "claude_task";
   enabled: boolean;
   last_synced_at: string | null;
   last_error: string | null;
