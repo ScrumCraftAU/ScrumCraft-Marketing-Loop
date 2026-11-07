@@ -237,32 +237,33 @@ export default async function MetricsPage() {
       <section className="space-y-2">
         <h2 className="text-lg font-bold">Metric catalog</h2>
         <div className="overflow-x-auto rounded-lg border">
-          <Table>
+          {/* Fixed column widths and wrapping text, so all columns fit without scrolling sideways on a laptop or larger. */}
+          <Table className="min-w-[720px] table-fixed">
             <TableHeader>
               <TableRow>
-                <TableHead>Metric</TableHead>
-                <TableHead>Data</TableHead>
-                <TableHead>Key</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Stage</TableHead>
-                <TableHead>Source / formula</TableHead>
-                <TableHead>Better when</TableHead>
+                <TableHead className="w-[28%] whitespace-normal">Metric</TableHead>
+                <TableHead className="w-[10%] whitespace-normal">Data</TableHead>
+                <TableHead className="w-[17%] whitespace-normal">Key</TableHead>
+                <TableHead className="w-[9%] whitespace-normal">Type</TableHead>
+                <TableHead className="w-[10%] whitespace-normal">Stage</TableHead>
+                <TableHead className="w-[18%] whitespace-normal">Source / formula</TableHead>
+                <TableHead className="w-[8%] whitespace-normal">Better when</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {((metrics ?? []) as Metric[]).map((m) => (
                 <TableRow key={m.key}>
-                  <TableCell>
+                  <TableCell className="whitespace-normal">
                     <p className="font-medium">{m.name}{m.is_north_star && " ★"}</p>
                     {m.description && <p className="text-xs text-muted-foreground">{m.description}</p>}
                   </TableCell>
                   <TableCell>
                     <OnlineLozenge online={isOnline(m, latest, today, formulas)} latest={latest.get(m.key)} />
                   </TableCell>
-                  <TableCell className="text-xs">{m.key}</TableCell>
+                  <TableCell className="whitespace-normal text-xs [overflow-wrap:anywhere]">{m.key}</TableCell>
                   <TableCell><Badge variant={m.indicator === "leading" ? "secondary" : "outline"}>{m.indicator}</Badge></TableCell>
                   <TableCell className="capitalize">{m.funnel_stage}</TableCell>
-                  <TableCell className="text-xs text-muted-foreground">{m.formula ?? m.source_id}</TableCell>
+                  <TableCell className="whitespace-normal text-xs text-muted-foreground [overflow-wrap:anywhere]">{m.formula ?? m.source_id}</TableCell>
                   <TableCell>{m.direction === "up_good" ? "higher" : "lower"}</TableCell>
                 </TableRow>
               ))}
