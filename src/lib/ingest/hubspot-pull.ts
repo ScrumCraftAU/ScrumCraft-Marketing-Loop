@@ -105,7 +105,12 @@ async function countOnly(object: string, filters: Filter[]) {
 }
 
 /** Documented social endpoints to try (SCM-312). HubSpot lists these as deprecated; read-only GETs. */
-const SOCIAL_PROBES = ["/broadcast/v1/channels/setting/publish/current", "/broadcast/v1/broadcasts?limit=5&status=SUCCESS"];
+const SOCIAL_PROBES = [
+  "/broadcast/v1/channels/setting/publish/current",
+  "/broadcast/v1/broadcasts?count=5",
+  "/broadcast/v1/broadcasts?count=5&status=success",
+  `/broadcast/v1/broadcasts?count=5&since=${Date.parse("2026-01-01T00:00:00Z")}`,
+];
 
 /** Records whether each endpoint answers and the shape of its reply, for raw_events only. Stores no metrics. */
 async function probeSocialApi() {
