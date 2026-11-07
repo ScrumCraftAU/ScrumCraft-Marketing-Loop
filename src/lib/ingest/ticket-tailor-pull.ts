@@ -1,7 +1,7 @@
 import "server-only";
 import { env, isTicketTailorConfigured } from "@/lib/env";
 import { adelaideDay, adelaideMidnight, lastDays } from "./days";
-import { FILL_RATE_HORIZON_DAYS, fillRateSnapshot, ordersToObservations, type TtEvent, type TtOrder } from "./ticket-tailor";
+import { fillRateSnapshot, ordersToObservations, type TtEvent, type TtOrder } from "./ticket-tailor";
 import { defaultDayCount, recordPullError, storePull } from "./store";
 
 const API = "https://api.tickettailor.com/v1";
@@ -51,7 +51,8 @@ export async function pullTicketTailor(dayCount?: number): Promise<{ ok: boolean
     try {
       const now = Math.floor(Date.now() / 1000);
       const events: TtEvent[] = [];
-      let nextEvents: string | null = `/events?${new URLSearchParams({ "start_at.gte": String(now), "start_at.lt": String(now + FILL_RATE_HORIZON_DAYS * 86_400), limit: "100" })}`;
+      // Ticket Tailor returns nothing if start_at.gte and start_at.lt are combined, so fillRateSnapshot applies the end date.
+      let nextEvents: string | null = `/events?${new URLSearchParams({ "start_at.gte": String(now), limit: "100" })}`;
       for (let page = 0; nextEvents && page < MAX_PAGES; page++) {
         const res: { data: TtEvent[]; links?: { next?: string | null } } = await tt(nextEvents);
         events.push(...res.data);
