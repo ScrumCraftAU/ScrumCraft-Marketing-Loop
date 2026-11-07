@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { insightsToObservations, leadsFrom, type MetaInsightRow } from "./meta-ads.ts";
+import { insightsToObservations, leadsFrom, linkClicksFrom, type MetaInsightRow } from "./meta-ads.ts";
 
 test("Meta insights become daily totals and a row per platform", () => {
   const days = ["2026-11-01", "2026-11-02"];
@@ -22,6 +22,12 @@ test("Meta insights become daily totals and a row per platform", () => {
   assert.equal(v("meta_ads.clicks", "2026-11-01", "channel:facebook"), 15);
   assert.equal(v("meta_ads.conversions", "2026-11-01", "channel:facebook"), undefined); // zero values aren't stored per platform
   assert.equal(obs.some((o) => o.date === "2026-10-30"), false);
+});
+
+test("clicks are link clicks when Meta reports them", () => {
+  assert.equal(linkClicksFrom({ date_start: "2026-09-01", clicks: "5", actions: [{ action_type: "link_click", value: "7" }] }), 7);
+  assert.equal(linkClicksFrom({ date_start: "2026-09-01", clicks: "5", actions: [{ action_type: "lead", value: "1" }] }), 5);
+  assert.equal(linkClicksFrom({ date_start: "2026-09-01" }), 0);
 });
 
 test("leads use Meta's combined count, or its parts when that's missing", () => {

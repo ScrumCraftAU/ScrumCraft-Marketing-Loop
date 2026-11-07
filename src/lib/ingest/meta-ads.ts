@@ -3,7 +3,7 @@
  * dependency-free for `node --test`; the API calls live in meta-ads-pull.ts.
  *
  * Counting rules:
- *   - spend, impressions and clicks are Ads Manager's own numbers per day (clicks = all clicks)
+ *   - spend and impressions are Ads Manager's own numbers per day, and clicks are link clicks
  *   - reach is per day. People reached can't be added across days, so its aggregation is "avg"
  *   - conversions are Meta's "lead" actions, which needs the pixel (SCM-173), so 0 until that's done
  * The platform breakdown is stored as channel:<facebook | instagram | ...>.
@@ -32,11 +32,20 @@ export function leadsFrom(actions: MetaInsightRow["actions"]) {
   return num(value("offsite_conversion.fb_pixel_lead")) + num(value("onsite_conversion.lead_grouped"));
 }
 
+/**
+ * Link clicks, the number Ads Manager shows as results. The API's own "clicks" field reported fewer
+ * (222 against 278 on 7 Nov 2026), so it's only used when a row has no link_click action.
+ */
+export function linkClicksFrom(r: MetaInsightRow) {
+  const action = r.actions?.find((a) => a.action_type === "link_click");
+  return action ? num(action.value) : num(r.clicks);
+}
+
 const FIELDS = {
   "meta_ads.spend": (r: MetaInsightRow) => num(r.spend),
   "meta_ads.impressions": (r: MetaInsightRow) => num(r.impressions),
   "meta_ads.reach": (r: MetaInsightRow) => num(r.reach),
-  "meta_ads.clicks": (r: MetaInsightRow) => num(r.clicks),
+  "meta_ads.clicks": linkClicksFrom,
   "meta_ads.conversions": (r: MetaInsightRow) => leadsFrom(r.actions),
 };
 
