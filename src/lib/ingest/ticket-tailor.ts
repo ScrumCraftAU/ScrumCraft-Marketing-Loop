@@ -24,6 +24,48 @@ export interface TtOrder {
   issued_tickets?: { status?: string }[] | null;
 }
 
+export interface TtEvent {
+  id: string;
+  name?: string | null;
+  status?: string | null;
+  private?: string | boolean | null;
+  hidden?: string | boolean | null;
+  start?: { unix?: number | null; date?: string | null } | null;
+  max_tickets_sold_per_occurrence?: number | null;
+  ticket_types?: { price?: number | null; quantity_issued?: number | null; quantity_total?: number | null }[] | null;
+}
+
+/** Courses are scheduled months ahead, so 60 days would often show nothing (SCM-311, 7 Nov 2026). */
+export const FILL_RATE_HORIZON_DAYS = 180;
+
+const isYes = (v: string | boolean | null | undefined) => v === true || v === "true";
+
+/**
+ * Seats sold / capacity for upcoming public paid courses: a daily snapshot, overall and per course
+ * (course:<name> <date>). Capacity is the event's ticket cap if it has one, otherwise the ticket
+ * types added up. Free events are left out, they're sign-ups rather than seats. With no upcoming
+ * course nothing is stored, because 0% would read as a course that isn't selling.
+ */
+export function fillRateSnapshot(events: TtEvent[], day: string, nowUnix: number): Observation[] {
+  const until = nowUnix + FILL_RATE_HORIZON_DAYS * 86_400;
+  const courses = events.flatMap((e) => {
+    const start = e.start?.unix ?? 0;
+    const types = e.ticket_types ?? [];
+    if (start < nowUnix || start >= until || e.status !== "published" || isYes(e.private) || isYes(e.hidden)) return [];
+    if (!types.some((t) => (t.price ?? 0) > 0)) return [];
+    const capacity = e.max_tickets_sold_per_occurrence || types.reduce((sum, t) => sum + (t.quantity_total ?? 0), 0);
+    if (capacity <= 0) return [];
+    return [{ label: `${(e.name ?? e.id).trim().toLowerCase()} ${e.start?.date ?? ""}`.trim(), capacity, sold: types.reduce((sum, t) => sum + (t.quantity_issued ?? 0), 0) }];
+  });
+  if (!courses.length) return [];
+  const metric_key = "ticket_tailor.fill_rate";
+  const total = (key: "sold" | "capacity") => courses.reduce((sum, c) => sum + c[key], 0);
+  return [
+    { metric_key, date: day, dimension: "", value: total("sold") / total("capacity") },
+    ...courses.map((c) => ({ metric_key, date: day, dimension: `course:${c.label}`, value: c.sold / c.capacity })),
+  ];
+}
+
 const COUNTED = new Set(["completed", "pending"]);
 
 export function ordersToObservations(orders: TtOrder[], days: string[]): { observations: Observation[]; warnings: string[] } {

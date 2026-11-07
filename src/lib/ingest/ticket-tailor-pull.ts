@@ -1,7 +1,7 @@
 import "server-only";
 import { env, isTicketTailorConfigured } from "@/lib/env";
 import { adelaideDay, adelaideMidnight, lastDays } from "./days";
-import { ordersToObservations, type TtOrder } from "./ticket-tailor";
+import { FILL_RATE_HORIZON_DAYS, fillRateSnapshot, ordersToObservations, type TtEvent, type TtOrder } from "./ticket-tailor";
 import { defaultDayCount, recordPullError, storePull } from "./store";
 
 const API = "https://api.tickettailor.com/v1";
@@ -45,7 +45,26 @@ export async function pullTicketTailor(dayCount?: number): Promise<{ ok: boolean
 
     const parsed = ordersToObservations(inWindow, days);
     warnings.push(...parsed.warnings);
-    const stored = await storePull("ticket_tailor", parsed.observations, raw, warnings);
+    const observations = [...parsed.observations];
+
+    // Keep the order numbers even if the events call fails.
+    try {
+      const now = Math.floor(Date.now() / 1000);
+      const events: TtEvent[] = [];
+      let nextEvents: string | null = `/events?${new URLSearchParams({ "start_at.gte": String(now), "start_at.lt": String(now + FILL_RATE_HORIZON_DAYS * 86_400), limit: "100" })}`;
+      for (let page = 0; nextEvents && page < MAX_PAGES; page++) {
+        const res: { data: TtEvent[]; links?: { next?: string | null } } = await tt(nextEvents);
+        events.push(...res.data);
+        nextEvents = res.links?.next ? `${API}${res.links.next.replace(/^\/v1/, "")}` : null;
+      }
+      const fill = fillRateSnapshot(events, days[days.length - 1], now);
+      raw.fill_rate = { events: events.length, courses: Math.max(fill.length - 1, 0) };
+      observations.push(...fill);
+    } catch (err) {
+      warnings.push(`course fill rate: ${err instanceof Error ? err.message : String(err)}`);
+    }
+
+    const stored = await storePull("ticket_tailor", observations, raw, warnings);
     return { ok: true, stored, days: days.length, orders: inWindow.length, warnings };
   } catch (err) {
     const error = err instanceof Error ? err.message : String(err);
