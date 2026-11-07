@@ -153,6 +153,24 @@ export function intentSnapshot(companies: { properties: Record<string, string | 
   ];
 }
 
+/**
+ * What an API endpoint returned, without its content (SCM-312): enough to judge whether it's usable
+ * as a feed. Keeps only field names, an item count and which fields are numbers, never post text,
+ * account names or other values. Temporary, removed once the route is decided.
+ */
+export function summariseProbe(payload: unknown) {
+  const list = Array.isArray(payload)
+    ? payload
+    : ((["results", "broadcasts", "objects", "channels"] as const).map((k) => (payload as Record<string, unknown> | null)?.[k]).find(Array.isArray) as unknown[] | undefined);
+  const first = (list?.[0] ?? payload) as unknown;
+  const shape = (o: unknown) => (o && typeof o === "object" && !Array.isArray(o) ? Object.keys(o).sort() : []);
+  const nested: Record<string, string[]> = {};
+  if (first && typeof first === "object" && !Array.isArray(first)) {
+    for (const [k, v] of Object.entries(first)) if (v && typeof v === "object" && !Array.isArray(v)) nested[k] = shape(v);
+  }
+  return { items: list?.length ?? null, fields: shape(first), nested };
+}
+
 /** Sums a numeric property per Adelaide day of `dateProp`, only for `days`, with zero-filled gaps. */
 export function sumByDay(records: { properties: Record<string, string | null | undefined> }[], dateProp: string, valueProp: string, days: string[], metric_key: string): Observation[] {
   const sums = new Map(days.map((d) => [d, 0]));

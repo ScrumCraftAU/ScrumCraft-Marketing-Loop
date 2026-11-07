@@ -13,6 +13,7 @@ import {
   pipelineSnapshot,
   sumByDay,
   sumByDayAndDimension,
+  summariseProbe,
   withoutExcludedDeals,
   withoutMqlBackfills,
   type MarketingEmail,
@@ -101,6 +102,28 @@ async function countOnly(object: string, filters: Filter[]) {
     body: JSON.stringify({ filterGroups: [{ filters }], properties: ["hs_object_id"], limit: 1 }),
   });
   return page.total;
+}
+
+/** Documented social endpoints to try (SCM-312). HubSpot lists these as deprecated; read-only GETs. */
+const SOCIAL_PROBES = ["/broadcast/v1/channels/setting/publish/current", "/broadcast/v1/broadcasts?limit=5&status=SUCCESS"];
+
+/** Records whether each endpoint answers and the shape of its reply, for raw_events only. Stores no metrics. */
+async function probeSocialApi() {
+  return Promise.all(
+    SOCIAL_PROBES.map(async (path) => {
+      try {
+        const res = await fetch(`${API}${path}`, {
+          headers: { Authorization: `Bearer ${env.hubspotAccessToken}` },
+          cache: "no-store",
+          signal: AbortSignal.timeout(20_000),
+        });
+        if (!res.ok) return { path, status: res.status, error: (await res.text()).slice(0, 200) };
+        return { path, status: res.status, ...summariseProbe(await res.json()) };
+      } catch (err) {
+        return { path, status: null, error: err instanceof Error ? err.message : String(err) };
+      }
+    }),
+  );
 }
 
 /**
@@ -243,6 +266,8 @@ export async function pullHubSpot(dayCount?: number): Promise<{ ok: boolean; sto
       // Email stats need the "content" scope; keep the CRM numbers even if this part fails.
       warnings.push(`marketing email stats: ${err instanceof Error ? err.message : String(err)}`);
     }
+
+    raw.social_probe = await probeSocialApi();
 
     const stored = await storePull("hubspot", observations, raw, warnings);
     return { ok: true, stored, days: days.length, warnings };
