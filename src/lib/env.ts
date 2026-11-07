@@ -22,6 +22,9 @@ export const env = {
   learnWorldsSchoolUrl: process.env.LEARNWORLDS_SCHOOL_URL ?? "", // e.g. https://scrumcraftacademy.com/admin/api
   learnWorldsClientId: process.env.LEARNWORLDS_CLIENT_ID ?? "",
   learnWorldsClientSecret: process.env.LEARNWORLDS_CLIENT_SECRET ?? "",
+  // Meta Marketing API: system user token with ads_read, and the ad account id(s). Set in Vercel only.
+  metaAdsAccessToken: process.env.META_ADS_ACCESS_TOKEN ?? "",
+  metaAdAccountId: process.env.META_AD_ACCOUNT_ID ?? "",
 };
 
 export const isConfluenceConfigured = () => Boolean(env.confluenceEmail && env.confluenceApiToken);
@@ -29,6 +32,7 @@ export const isJiraConfigured = () => Boolean(env.jiraEmail && env.jiraApiToken)
 export const isHubSpotConfigured = () => Boolean(env.hubspotAccessToken);
 export const isTicketTailorConfigured = () => Boolean(env.ticketTailorApiKey);
 export const isLearnWorldsConfigured = () => Boolean(env.learnWorldsSchoolUrl && env.learnWorldsClientId && env.learnWorldsClientSecret);
+export const isMetaAdsConfigured = () => Boolean(env.metaAdsAccessToken && env.metaAdAccountId);
 
 export const isSupabaseConfigured = () => Boolean(env.supabaseUrl && env.supabaseSecretKey);
 export const isAnthropicConfigured = () => Boolean(env.anthropicApiKey);

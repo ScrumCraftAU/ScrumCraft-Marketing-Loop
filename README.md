@@ -92,7 +92,8 @@ Derived metrics (`paid.spend`, `paid.cost_per_booking`, `paid.roas`, …) are **
 | Conversion | Course bookings (orders) | `ticket_tailor.orders` | Ticket Tailor |
 | Conversion | Seats sold | `ticket_tailor.tickets` | Ticket Tailor |
 | Conversion | Academy sales (paid, by course) | `learnworlds.sales` | LearnWorlds |
-| Conversion | Upcoming course fill rate | `ticket_tailor.fill_rate` | Ticket Tailor |
+| Conversion | Upcoming course fill rate, next 180 days (also per course, `course:<name> <date>`) | `ticket_tailor.fill_rate` | Ticket Tailor |
+| Awareness, Conversion, Revenue | Meta reach, conversions, cost per conversion (also `channel:<platform>`) | `meta_ads.reach`, `meta_ads.conversions`, `meta_ads.cost_per_conversion` | Meta Marketing API / derived |
 | Conversion | Checkout-to-booking rate | `checkout.conversion` | derived |
 | Revenue | Booking revenue | `ticket_tailor.revenue` | Ticket Tailor |
 | Revenue | Academy revenue (by course) | `learnworlds.revenue` | LearnWorlds |
@@ -158,7 +159,7 @@ With no Supabase env set, every page renders a "not connected" state.
 1. Supabase project + apply migration; Vercel project linked to this repo with SSO + env vars
 2. Wire GA4 via Zapier → `/api/ingest/ga4`
 3. ✅ HubSpot + Ticket Tailor pulls (run at the start of each daily loop → same observation table)
-4. LinkedIn / Meta ads via Zapier; SEO via Search Console through the GA4 link (`gsc.*`). Semrush is kept
+4. Meta ads via the Marketing API (`META_ADS_ACCESS_TOKEN`, `META_AD_ACCOUNT_ID`, read-only `ads_read`), LinkedIn ads via Zapier; SEO via Search Console through the GA4 link (`gsc.*`). Semrush is kept
    for competitor and keyword research only, not as a feed
 5. Schedule the daily loop (Vercel Cron) and add a morning digest (email/Teams)
 6. ✅ Funnel targets set (MQLs, MQL-to-SQL, revenue); still to add: win rate and pipeline coverage (need closed-lost and open deal value in the HubSpot pull). ✅ MQL workflow live in HubSpot (SCM-220, 22 Oct 2026)

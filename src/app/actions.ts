@@ -4,10 +4,11 @@ import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/supabase/server";
-import { isConfluenceConfigured, isHubSpotConfigured, isJiraConfigured, isLearnWorldsConfigured, isSupabaseConfigured, isTicketTailorConfigured } from "@/lib/env";
+import { isConfluenceConfigured, isHubSpotConfigured, isJiraConfigured, isLearnWorldsConfigured, isMetaAdsConfigured, isSupabaseConfigured, isTicketTailorConfigured } from "@/lib/env";
 import { BACKFILL_DAYS, pullHubSpot } from "@/lib/ingest/hubspot-pull";
 import { pullTicketTailor } from "@/lib/ingest/ticket-tailor-pull";
 import { pullLearnWorlds } from "@/lib/ingest/learnworlds-pull";
+import { pullMetaAds } from "@/lib/ingest/meta-ads-pull";
 import { runLoop } from "@/lib/loop/run";
 import { refreshStrategyDocs } from "@/lib/strategy/confluence";
 import { createExperimentStory, transitionTo } from "@/lib/jira/client";
@@ -40,6 +41,7 @@ const PULLS = {
   hubspot: { configured: isHubSpotConfigured, envVar: "HUBSPOT_ACCESS_TOKEN", pull: () => pullHubSpot() },
   ticket_tailor: { configured: isTicketTailorConfigured, envVar: "TICKET_TAILOR_API_KEY", pull: () => pullTicketTailor() },
   learnworlds: { configured: isLearnWorldsConfigured, envVar: "LEARNWORLDS_SCHOOL_URL, LEARNWORLDS_CLIENT_ID and LEARNWORLDS_CLIENT_SECRET", pull: () => pullLearnWorlds() },
+  meta_ads: { configured: isMetaAdsConfigured, envVar: "META_ADS_ACCESS_TOKEN and META_AD_ACCOUNT_ID", pull: () => pullMetaAds() },
 } as const;
 export type PulledSource = keyof typeof PULLS;
 
@@ -56,7 +58,7 @@ export async function backfillHubSpot() {
 
 export async function pullSourceNow(source: PulledSource) {
   if (!isSupabaseConfigured()) return { ok: false as const, error: "Supabase is not configured yet" };
-  const p = PULLS[z.enum(["hubspot", "ticket_tailor", "learnworlds"]).parse(source)];
+  const p = PULLS[z.enum(["hubspot", "ticket_tailor", "learnworlds", "meta_ads"]).parse(source)];
   if (!p.configured()) return { ok: false as const, error: `Add ${p.envVar} to the Vercel project first` };
   const res = await p.pull();
   revalidatePath("/", "layout");

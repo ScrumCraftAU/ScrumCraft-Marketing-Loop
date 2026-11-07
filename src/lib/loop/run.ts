@@ -1,10 +1,11 @@
 import "server-only";
 import { addDays, format, parseISO, subMinutes } from "date-fns";
 import { db } from "@/lib/supabase/server";
-import { isAnthropicConfigured, isHubSpotConfigured, isLearnWorldsConfigured, isTicketTailorConfigured } from "@/lib/env";
+import { isAnthropicConfigured, isHubSpotConfigured, isLearnWorldsConfigured, isMetaAdsConfigured, isTicketTailorConfigured } from "@/lib/env";
 import { pullHubSpot } from "@/lib/ingest/hubspot-pull";
 import { pullTicketTailor } from "@/lib/ingest/ticket-tailor-pull";
 import { pullLearnWorlds } from "@/lib/ingest/learnworlds-pull";
+import { pullMetaAds } from "@/lib/ingest/meta-ads-pull";
 import { computeStats } from "@/lib/metrics/stats";
 import { computeBreakdowns } from "@/lib/metrics/breakdowns-load";
 import { computeSiteStats } from "@/lib/metrics/sites";
@@ -46,6 +47,7 @@ export async function runLoop({ trigger, triggeredBy }: RunOptions) {
   if (isHubSpotConfigured()) await pullHubSpot().catch(() => undefined);
   if (isTicketTailorConfigured()) await pullTicketTailor().catch(() => undefined);
   if (isLearnWorldsConfigured()) await pullLearnWorlds().catch(() => undefined);
+  if (isMetaAdsConfigured()) await pullMetaAds().catch(() => undefined);
 
   const stats = await computeStats();
   const { data: run, error: runErr } = await supabase
