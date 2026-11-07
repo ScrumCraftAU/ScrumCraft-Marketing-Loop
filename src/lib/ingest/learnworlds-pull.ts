@@ -52,7 +52,7 @@ export async function pullLearnWorlds(dayCount?: number): Promise<{ ok: boolean;
       // LearnWorlds answers an empty result with 404 {"error":"Payments not found"}.
       if (res.status === 404) {
         const text = await res.text();
-        if (/not found/i.test(text)) break;
+        if (/not found/i.test(text)) { more = false; break; }
         throw new Error(`LearnWorlds 404 on /v2/payments: ${text.slice(0, 300)}`);
       }
       if (!res.ok) throw new Error(`LearnWorlds ${res.status} on /v2/payments: ${(await res.text()).slice(0, 300)}`);
