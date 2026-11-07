@@ -14,6 +14,13 @@
 import type { Observation } from "./ga4.ts";
 import { adelaideDay } from "./days.ts";
 
+/**
+ * Whether to request another page of payments. An empty page means no more results, whatever
+ * meta.totalPages says: seen from 20 Oct 2026, when empty windows reported many pages.
+ */
+export const hasMorePayments = (pageData: unknown[] | null | undefined, page: number, totalPages: number | null | undefined) =>
+  !!pageData?.length && page < (totalPages ?? 1);
+
 export interface LwPayment {
   id: string;
   transaction_id?: string | null;

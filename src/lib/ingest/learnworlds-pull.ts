@@ -1,7 +1,7 @@
 import "server-only";
 import { env, isLearnWorldsConfigured } from "@/lib/env";
 import { adelaideDay, adelaideMidnight, lastDays } from "./days";
-import { paymentsToObservations, type LwPayment } from "./learnworlds";
+import { hasMorePayments, paymentsToObservations, type LwPayment } from "./learnworlds";
 import { defaultDayCount, recordPullError, storePull } from "./store";
 
 const MAX_PAGES = 25; // 200 payments a page; far above our volume, but bounded
@@ -41,8 +41,8 @@ export async function pullLearnWorlds(dayCount?: number): Promise<{ ok: boolean;
   try {
     const token = await accessToken();
     const payments: LwPayment[] = [];
-    let page = 1, totalPages = 1;
-    do {
+    let page = 1, more = true;
+    while (more && page <= MAX_PAGES) {
       const qs = new URLSearchParams({ created_after: String(from), created_before: String(to - 1), items_per_page: "200", page: String(page) });
       const res = await fetch(`${base()}/v2/payments?${qs}`, {
         headers: { Authorization: `Bearer ${token}`, "Lw-Client": env.learnWorldsClientId, Accept: "application/json" },
@@ -58,10 +58,10 @@ export async function pullLearnWorlds(dayCount?: number): Promise<{ ok: boolean;
       if (!res.ok) throw new Error(`LearnWorlds ${res.status} on /v2/payments: ${(await res.text()).slice(0, 300)}`);
       const body = (await res.json()) as { data?: LwPayment[]; meta?: { totalPages?: number } };
       payments.push(...(body.data ?? []));
-      totalPages = body.meta?.totalPages ?? 1;
+      more = hasMorePayments(body.data, page, body.meta?.totalPages);
       page++;
-    } while (page <= totalPages && page <= MAX_PAGES);
-    if (page <= totalPages) warnings.push(`stopped after ${MAX_PAGES} pages of payments`);
+    }
+    if (more) warnings.push(`stopped after ${MAX_PAGES} pages of payments`);
 
     const { observations, skipped } = paymentsToObservations(payments, days);
     raw.payments = payments.map((p) => ({ id: p.id, created: p.created, paid_at: p.paid_at, price: p.price, refund_at: p.refund_at, product: p.product?.name, transaction: p.transaction_id === "Added by admin" ? "admin" : p.type }));

@@ -111,7 +111,8 @@ export default async function MetricsPage() {
       <section className="space-y-2">
         <h2 className="text-lg font-bold">Sources</h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {((sources ?? []) as Source[]).map((s) => (
+          {/* A source with no active metrics is retired (SEO, replaced by Search Console), so no card. */}
+          {((sources ?? []) as Source[]).filter((s) => ((metrics ?? []) as Metric[]).some((m) => m.source_id === s.id && m.active)).map((s) => (
             <div key={s.id} className="rounded-lg border p-3 text-sm">
               <div className="flex items-center justify-between">
                 <p className="font-medium">{s.name}</p>

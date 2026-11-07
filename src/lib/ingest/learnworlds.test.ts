@@ -1,8 +1,16 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { paymentsToObservations, type LwPayment } from "./learnworlds.ts";
+import { hasMorePayments, paymentsToObservations, type LwPayment } from "./learnworlds.ts";
 
 const unix = (iso: string) => Math.floor(Date.parse(iso) / 1000);
+
+test("paging stops on an empty page, whatever totalPages says", () => {
+  assert.equal(hasMorePayments([], 1, 40), false); // the false "stopped after 25 pages" warning
+  assert.equal(hasMorePayments(undefined, 1, 40), false);
+  assert.equal(hasMorePayments([{}], 1, 2), true);
+  assert.equal(hasMorePayments([{}], 2, 2), false);
+  assert.equal(hasMorePayments([{}], 1, undefined), false);
+});
 
 test("Academy sales and revenue per Adelaide day and course", () => {
   const days = ["2026-10-12", "2026-10-13"];
