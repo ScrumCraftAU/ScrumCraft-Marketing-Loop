@@ -18,6 +18,8 @@ import {
   type MarketingEmail,
 } from "./hubspot";
 import { defaultDayCount, recordPullError, storePull } from "./store";
+import { db } from "@/lib/supabase/server";
+import { deliveredByMonth, monthOf, monthsFrom, type DeliverableDeal, type DeliveryProfile } from "./delivered";
 
 const API = "https://api.hubapi.com";
 const SEARCH_PAGE = 200;
@@ -92,6 +94,17 @@ async function newContactsPerDay(days: string[], from: number, to: number, warni
   }
   const counted = new Set(perDayFallback.map((o) => o.date));
   return [...countByDay(created, "createdate", days, "hubspot.new_contacts").filter((o) => !counted.has(o.date)), ...perDayFallback];
+}
+
+/** Delivery profiles (SCM-326), keyed by HubSpot deal id. Absent = a one-off delivered in the close month. */
+async function loadDeliveryProfiles(): Promise<Map<string, DeliveryProfile>> {
+  const { data } = await db().from("deal_delivery_profiles").select("deal_id, revenue_type, term_months, start_date");
+  return new Map(
+    (data ?? []).map((p) => [
+      String(p.deal_id),
+      { revenue_type: p.revenue_type as "one_off" | "monthly", term_months: Number(p.term_months), start_date: (p.start_date as string | null) ?? null },
+    ]),
+  );
 }
 
 /** Number of records matching the filters (one request, no paging). */
@@ -184,12 +197,40 @@ export async function pullHubSpot(dayCount?: number): Promise<{ ok: boolean; sto
       await searchAll(
         "deals",
         [{ propertyName: "hs_is_closed", operator: "EQ", value: "false" }],
-        ["amount_in_home_currency", "hs_projected_amount_in_home_currency", "deal_source"],
+        ["amount_in_home_currency", "hs_projected_amount_in_home_currency", "deal_source", "closedate"],
         warnings,
       ),
     );
     observations.push(...pipelineSnapshot(open, days[days.length - 1]));
     raw.open_deals = open.length;
+
+    // Delivered-revenue projection (SCM-326): spread won (last 12 months) + probability-weighted open
+    // deals over their delivery months, so the monthly view reflects revenue landing each month rather
+    // than the full contract value booked at close. Snapshot on the latest pulled day (aggregation last).
+    try {
+      const FORWARD_MONTHS = 12;
+      const profiles = await loadDeliveryProfiles();
+      const wonYear = withoutExcludedDeals(
+        await searchAll(
+          "deals",
+          [between("closedate", to - 365 * 86_400_000, to), { propertyName: "hs_is_closed_won", operator: "EQ", value: "true" }],
+          ["closedate", "amount_in_home_currency"],
+          warnings,
+        ),
+      );
+      const deliverable: DeliverableDeal[] = [
+        ...wonYear.map((d) => ({ amount: Number(d.properties.amount_in_home_currency ?? 0), closedate: d.properties.closedate, profile: profiles.get(String(d.id)) ?? null })),
+        ...open.map((d) => ({ amount: Number(d.properties.hs_projected_amount_in_home_currency ?? 0), closedate: d.properties.closedate, profile: profiles.get(String(d.id)) ?? null })),
+      ];
+      const snapshotDay = days[days.length - 1];
+      const months = monthsFrom(monthOf(snapshotDay)!, FORWARD_MONTHS);
+      const byMonth = deliveredByMonth(deliverable, months);
+      for (const m of months) observations.push({ metric_key: "hubspot.delivered_revenue", date: snapshotDay, dimension: `month:${m}`, value: byMonth.get(m) ?? 0 });
+      observations.push({ metric_key: "hubspot.delivered_revenue", date: snapshotDay, dimension: "", value: byMonth.get(months[0]) ?? 0 });
+      raw.delivered_revenue = { current_month: months[0], this_month: byMonth.get(months[0]) ?? 0, won_year: wonYear.length, open: open.length, profiles: profiles.size };
+    } catch (err) {
+      warnings.push(`delivered revenue: ${err instanceof Error ? err.message : String(err)}`);
+    }
 
     // Buyer Intent snapshot (SCM-254). Needs the companies read scope; keep the rest if this part fails.
     try {
