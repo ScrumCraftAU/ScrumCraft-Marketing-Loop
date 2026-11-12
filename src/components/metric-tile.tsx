@@ -32,6 +32,12 @@ export function MetricTile({ stats, emphasis = false }: { stats: MetricStats; em
             <p className={cn("font-bold tabular-nums", emphasis ? "text-3xl" : "text-2xl")}>
               {formatValue(current, metric.unit)}
             </p>
+            {metric.target_value != null && (
+              <p className="mt-0.5 text-[11px] leading-tight text-muted-foreground tabular-nums">
+                {metric.direction === "down_good" ? "limit" : "target"} {formatValue(metric.target_value, metric.unit)}
+                {metric.target_period ? ` / ${metric.target_period}` : ""}
+              </p>
+            )}
             <p
               className={cn(
                 "mt-1 inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-medium tabular-nums",

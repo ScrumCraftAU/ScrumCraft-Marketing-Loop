@@ -80,6 +80,7 @@ Derived metrics (`paid.spend`, `paid.cost_per_booking`, `paid.roas`, …) are **
 | Conversion | Form submissions | `ga4.form_submits` | GA4 |
 | Conversion | Checkout page views | `ga4.checkout_views` | GA4 |
 | Conversion | New contacts | `hubspot.new_contacts` | HubSpot |
+| Conversion | Marketing contacts, daily snapshot (limit 2,000; loop alerts at ≥ 1,800) | `hubspot.marketing_contacts` | HubSpot |
 | Conversion | MQLs (target ≥ 30 a quarter) | `hubspot.mqls` | HubSpot |
 | Conversion | MQL-to-SQL rate (target 25%) | `hubspot.mql_to_sql_rate` | derived |
 | Conversion | Academy enrolments (new LearnWorlds learners, by course) | `hubspot.academy_enrolments` | HubSpot |
