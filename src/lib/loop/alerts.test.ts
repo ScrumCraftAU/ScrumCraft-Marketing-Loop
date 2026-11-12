@@ -15,20 +15,24 @@ test("no alert when the count is missing", () => {
 });
 
 test("alert at or above the threshold", () => {
-  for (const count of [MARKETING_CONTACTS_ALERT_AT, 1950, MARKETING_CONTACTS_LIMIT]) {
+  for (const count of [MARKETING_CONTACTS_ALERT_AT, 1950, MARKETING_CONTACTS_LIMIT, 4155]) {
     const finding = marketingContactsAlert(count);
     assert.ok(finding, `expected an alert at ${count}`);
     assert.equal(finding.severity, "alert");
     assert.equal(finding.phase, "check");
     assert.equal(finding.kind, "risk");
     assert.equal(finding.metric_key, "hubspot.marketing_contacts");
-    assert.match(finding.title, /1,800|nearing/);
     assert.match(finding.detail, /2,000/);
   }
 });
 
+test("wording is 'nearing' below the limit and 'over' at or above it", () => {
+  assert.match(marketingContactsAlert(1850)!.title, /nearing/);
+  assert.match(marketingContactsAlert(MARKETING_CONTACTS_LIMIT)!.title, /over/);
+  assert.match(marketingContactsAlert(4155)!.title, /over/);
+});
+
 test("the count appears in the message", () => {
-  const finding = marketingContactsAlert(1850);
-  assert.ok(finding);
-  assert.match(finding.title, /1,850/);
+  assert.match(marketingContactsAlert(1850)!.title, /1,850/);
+  assert.match(marketingContactsAlert(4155)!.title, /4,155/);
 });

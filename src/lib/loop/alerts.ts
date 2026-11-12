@@ -25,16 +25,21 @@ export interface RuleFinding {
  */
 export function marketingContactsAlert(count: number | null | undefined): RuleFinding | null {
   if (count == null || !Number.isFinite(count) || count < MARKETING_CONTACTS_ALERT_AT) return null;
-  const n = Math.round(count).toLocaleString("en-AU");
+  const rounded = Math.round(count);
+  const n = rounded.toLocaleString("en-AU");
   const limit = MARKETING_CONTACTS_LIMIT.toLocaleString("en-AU");
-  const at = MARKETING_CONTACTS_ALERT_AT.toLocaleString("en-AU");
+  const over = rounded >= MARKETING_CONTACTS_LIMIT;
   return {
     phase: "check",
     kind: "risk",
     severity: "alert",
     metric_key: "hubspot.marketing_contacts",
     experiment_id: null,
-    title: `Marketing contacts at ${n}, nearing the ${limit} limit`,
-    detail: `HubSpot marketing contacts have reached ${n}, at or above the ${at} alert threshold for the ${limit} Marketing Hub tier (in effect from 1 Dec 2026). Set inactive or unneeded contacts to non-marketing before the count passes ${limit}, or the next contact tier will be billed.`,
+    title: over
+      ? `Marketing contacts at ${n}, over the ${limit} tier`
+      : `Marketing contacts at ${n}, nearing the ${limit} tier`,
+    detail: over
+      ? `HubSpot marketing contacts are at ${n}, above the ${limit} Marketing Hub included tier, so contacts past ${limit} are billed. Set inactive or unneeded contacts to non-marketing to bring the count back toward ${limit}.`
+      : `HubSpot marketing contacts have reached ${n}, nearing the ${limit} Marketing Hub included tier. Set inactive or unneeded contacts to non-marketing before the count passes ${limit}, or the contacts above it will be billed.`,
   };
 }
