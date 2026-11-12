@@ -191,6 +191,11 @@ export async function pullHubSpot(dayCount?: number): Promise<{ ok: boolean; sto
     observations.push(...pipelineSnapshot(open, days[days.length - 1]));
     raw.open_deals = open.length;
 
+    // Marketing contacts against the 2,000 Marketing Hub tier (SCM-288). Snapshot on the latest day.
+    const marketingContacts = await countOnly("contacts", [{ propertyName: "hs_marketable_status", operator: "EQ", value: "true" }]);
+    observations.push({ metric_key: "hubspot.marketing_contacts", date: days[days.length - 1], dimension: "", value: marketingContacts });
+    raw.marketing_contacts = marketingContacts;
+
     // Buyer Intent snapshot (SCM-254). Needs the companies read scope; keep the rest if this part fails.
     try {
       const tracked = await searchAll(

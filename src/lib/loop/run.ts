@@ -11,6 +11,7 @@ import { computeBreakdowns } from "@/lib/metrics/breakdowns-load";
 import { computeSiteStats } from "@/lib/metrics/sites";
 import { loadStrategyDocs } from "@/lib/strategy/confluence";
 import { analyse, toModelInput } from "@/lib/loop/analyse";
+import { marketingContactsAlert } from "@/lib/loop/alerts";
 import { syncExperimentsFromJira } from "@/lib/jira/sync";
 import { WIP_LIMIT } from "@/lib/jira/status";
 import type { Experiment } from "@/lib/types";
@@ -58,6 +59,11 @@ export async function runLoop({ trigger, triggeredBy }: RunOptions) {
   if (runErr) throw runErr;
   const runId = run.id as string;
 
+  // Deterministic rule findings (raised in code, not by the model), e.g. the marketing-contacts tier alert (SCM-288).
+  const ruleFindings = [
+    marketingContactsAlert(stats.metrics.find((s) => s.metric.key === "hubspot.marketing_contacts")?.current ?? null),
+  ].filter((f): f is NonNullable<typeof f> => f !== null);
+
   try {
     // Pick up moves made in Jira before reasoning about the board.
     await syncExperimentsFromJira();
@@ -102,6 +108,10 @@ export async function runLoop({ trigger, triggeredBy }: RunOptions) {
     };
 
     if (!isAnthropicConfigured()) {
+      if (ruleFindings.length) {
+        const { error } = await supabase.from("loop_findings").insert(ruleFindings.map((f) => ({ ...f, loop_run_id: runId })));
+        if (error) throw error;
+      }
       await supabase
         .from("loop_runs")
         .update({
@@ -123,6 +133,7 @@ export async function runLoop({ trigger, triggeredBy }: RunOptions) {
     const validExperiment = (id: string | null) => (id && experimentIds.has(id) ? id : null);
 
     const findings = [
+      ...ruleFindings,
       ...analysis.findings.map((f) => ({
         ...f,
         metric_key: validMetric(f.metric_key),
