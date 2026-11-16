@@ -15,6 +15,7 @@ import {
   sumByDayAndDimension,
   withoutExcludedDeals,
   withoutMqlBackfills,
+  withResolvedCourse,
   type MarketingEmail,
 } from "./hubspot";
 import { defaultDayCount, recordPullError, storePull } from "./store";
@@ -139,11 +140,13 @@ export async function pullHubSpot(dayCount?: number): Promise<{ ok: boolean; sto
     const enrolled = await searchAll(
       "contacts",
       [between("createdate", from, to), { propertyName: "hs_object_source_detail_1", operator: "EQ", value: "LearnWorlds" }],
-      ["createdate", "last_course_booked"],
+      ["createdate", "last_course_booked", "academy_courses"],
       warnings,
     );
     observations.push(...countByDay(enrolled, "createdate", days, "hubspot.academy_enrolments"));
-    observations.push(...countByDayAndDimension(enrolled, "createdate", "last_course_booked", days, "hubspot.academy_enrolments", "course"));
+    // Per course. When Last Course Booked is empty, fall back to the most recent Academy Courses
+    // entry so paid-course enrolments aren't hidden as "unknown" (SCM-252). Totals are unchanged.
+    observations.push(...countByDayAndDimension(withResolvedCourse(enrolled), "createdate", "last_course_booked", days, "hubspot.academy_enrolments", "course"));
     raw.academy_enrolments = enrolled.length;
 
     // Deals, with a breakdown by deal source (SCM-68) so revenue can be traced to channels.
