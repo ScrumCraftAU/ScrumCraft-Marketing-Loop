@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { adelaideDay, adelaideMidnight, countByDay, countByDayAndDimension, intentSnapshot, lastDays, pipelineSnapshot, sumByDayAndDimension, parseEmailHistogram, sumByDay, withoutExcludedDeals, withoutMqlBackfills, checkEmailBreakdown, emailObservations, emailsToBreakDown } from "./hubspot.ts";
+import { adelaideDay, adelaideMidnight, countByDay, countByDayAndDimension, enrolmentCourse, intentSnapshot, lastDays, pipelineSnapshot, sumByDayAndDimension, parseEmailHistogram, sumByDay, withoutExcludedDeals, withoutMqlBackfills, withResolvedCourse, checkEmailBreakdown, emailObservations, emailsToBreakDown } from "./hubspot.ts";
 
 test("Adelaide days and midnights, either side of daylight saving", () => {
   // 13 Oct 2026 is daylight time (UTC+10:30): midnight is 13:30 UTC the day before.
@@ -58,6 +58,33 @@ test("Academy enrolments are counted per Adelaide day and per course", () => {
   assert.equal(v("2026-10-14", "course:registered scrum basics"), 1);
   assert.equal(v("2026-10-13", "course:unknown"), 1);
   assert.equal(countByDay(recs, "createdate", days, "hubspot.academy_enrolments")[0].value, 2);
+});
+
+test("Academy course falls back to the most recent Academy Courses when Last Course Booked is empty (SCM-252)", () => {
+  const days = ["2026-10-27"];
+  const recs = [
+    // The 27 Oct case: sync left Last Course Booked empty and filled only Academy Courses.
+    { properties: { createdate: "2026-10-27T03:00:00Z", last_course_booked: null, academy_courses: "Self-Paced Registered Scrum Master Product Owner with AI" } },
+    // Several courses listed: take the most recent (last) entry.
+    { properties: { createdate: "2026-10-27T04:00:00Z", last_course_booked: "", academy_courses: "Registered Scrum Basics;Self-Paced Registered Scrum Master Product Owner with AI" } },
+    // Last Course Booked present: it wins over Academy Courses.
+    { properties: { createdate: "2026-10-27T05:00:00Z", last_course_booked: "Agile Leadership", academy_courses: "Registered Scrum Basics" } },
+    // Neither set: stays unknown.
+    { properties: { createdate: "2026-10-27T06:00:00Z", last_course_booked: null, academy_courses: null } },
+  ];
+  // The resolver itself.
+  assert.equal(enrolmentCourse(recs[0].properties), "Self-Paced Registered Scrum Master Product Owner with AI");
+  assert.equal(enrolmentCourse(recs[1].properties), "Self-Paced Registered Scrum Master Product Owner with AI");
+  assert.equal(enrolmentCourse(recs[2].properties), "Agile Leadership");
+  assert.equal(enrolmentCourse(recs[3].properties), null);
+  // Through the production path: withResolvedCourse then countByDayAndDimension.
+  const byCourse = countByDayAndDimension(withResolvedCourse(recs), "createdate", "last_course_booked", days, "hubspot.academy_enrolments", "course");
+  const v = (dim: string) => byCourse.find((o) => o.dimension === dim)?.value;
+  assert.equal(v("course:self-paced registered scrum master product owner with ai"), 2);
+  assert.equal(v("course:agile leadership"), 1);
+  assert.equal(v("course:unknown"), 1);
+  // The daily total is unchanged by the fallback (done-when 3).
+  assert.equal(countByDay(recs, "createdate", days, "hubspot.academy_enrolments")[0].value, 4);
 });
 
 test("won revenue is summed per day and deal source", () => {
