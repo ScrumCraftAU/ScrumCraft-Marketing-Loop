@@ -20,6 +20,8 @@ const OPEN_STATUSES = ["proposed", "approved", "running", "checking"] as const;
 export interface RunOptions {
   trigger: "scheduled" | "manual";
   triggeredBy: string;
+  /** Backfill window in days for the source pulls. Omitted uses each source's default (14 once seeded). */
+  dayCount?: number;
 }
 
 /**
@@ -29,7 +31,7 @@ export interface RunOptions {
  *   PLAN  — model proposes new experiments (status "proposed", awaiting approval)
  *   DO    — happens in the real world; the team moves experiments to "running"
  */
-export async function runLoop({ trigger, triggeredBy }: RunOptions) {
+export async function runLoop({ trigger, triggeredBy, dayCount }: RunOptions) {
   const supabase = db();
 
   const { data: inFlight } = await supabase
@@ -44,10 +46,10 @@ export async function runLoop({ trigger, triggeredBy }: RunOptions) {
 
   // Refresh pulled sources before computing stats. A failed pull is recorded on the source
   // (and in raw_events) but never stops the loop.
-  if (isHubSpotConfigured()) await pullHubSpot().catch(() => undefined);
-  if (isTicketTailorConfigured()) await pullTicketTailor().catch(() => undefined);
-  if (isLearnWorldsConfigured()) await pullLearnWorlds().catch(() => undefined);
-  if (isMetaAdsConfigured()) await pullMetaAds().catch(() => undefined);
+  if (isHubSpotConfigured()) await pullHubSpot(dayCount).catch(() => undefined);
+  if (isTicketTailorConfigured()) await pullTicketTailor(dayCount).catch(() => undefined);
+  if (isLearnWorldsConfigured()) await pullLearnWorlds(dayCount).catch(() => undefined);
+  if (isMetaAdsConfigured()) await pullMetaAds(dayCount).catch(() => undefined);
 
   const stats = await computeStats();
   const { data: run, error: runErr } = await supabase
