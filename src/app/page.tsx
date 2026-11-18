@@ -3,10 +3,12 @@ import { formatDistanceToNow, parseISO, format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MetricTile } from "@/components/metric-tile";
+import { DeliveredRevenueCard } from "@/components/delivered-revenue-card";
 import { NotConfigured } from "@/components/not-configured";
 import { RunLoopButton } from "@/components/run-loop-button";
 import { isSupabaseConfigured } from "@/lib/env";
 import { computeStats } from "@/lib/metrics/stats";
+import { getDeliveredForecast } from "@/lib/metrics/delivered";
 import { computeSiteStats } from "@/lib/metrics/sites";
 import { SiteTable } from "@/components/site-table";
 import { db } from "@/lib/supabase/server";
@@ -33,10 +35,11 @@ export default async function DashboardPage() {
     );
   }
 
-  const [stats, sites, { data: runs }] = await Promise.all([
+  const [stats, sites, { data: runs }, deliveredForecast] = await Promise.all([
     computeStats(),
     computeSiteStats(),
     db().from("loop_runs").select("*").order("started_at", { ascending: false }).limit(1),
+    getDeliveredForecast(),
   ]);
   const lastRun = (runs?.[0] ?? null) as LoopRun | null;
   const { data: findings } = lastRun
@@ -54,6 +57,7 @@ export default async function DashboardPage() {
           {northStar.map((s) => (
             <MetricTile key={s.metric.key} stats={s} emphasis />
           ))}
+          <DeliveredRevenueCard forecast={deliveredForecast} />
         </div>
         <Card className="lg:col-span-2">
           <CardHeader className="flex flex-row items-center justify-between gap-2">
