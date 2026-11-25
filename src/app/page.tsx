@@ -41,10 +41,20 @@ export default async function DashboardPage() {
   ]);
   const lastRun = (runs?.[0] ?? null) as LoopRun | null;
   const { data: findings } = lastRun
-    ? await db().from("loop_findings").select("*").eq("loop_run_id", lastRun.id).neq("severity", "info").order("severity", { ascending: true }).limit(5)
+    ? await db().from("loop_findings").select("*").eq("loop_run_id", lastRun.id).limit(50)
     : { data: [] };
 
   const northStar = stats.metrics.filter((s) => s.metric.is_north_star);
+
+  // Lead with the key points: alerts, then watches, then wins — a few of each so the card stays scannable.
+  const SEVERITY_RANK: Record<string, number> = { alert: 0, watch: 1, info: 2 };
+  const SEVERITY_CAP: Record<string, number> = { alert: 3, watch: 3, info: 2 };
+  const shownFindings = (() => {
+    const seen: Record<string, number> = {};
+    return [...((findings as LoopFinding[] | null) ?? [])]
+      .sort((a, b) => (SEVERITY_RANK[a.severity] ?? 9) - (SEVERITY_RANK[b.severity] ?? 9))
+      .filter((f) => (seen[f.severity] = (seen[f.severity] ?? 0) + 1) <= (SEVERITY_CAP[f.severity] ?? 0));
+  })();
 
   return (
     <div className="space-y-8">
@@ -74,20 +84,20 @@ export default async function DashboardPage() {
                     {lastRun.trigger} · {formatDistanceToNow(parseISO(lastRun.started_at), { addSuffix: true })}
                   </span>
                 </div>
-                {(findings as LoopFinding[] | null)?.length ? (
+                {shownFindings.length ? (
                   <ul className="space-y-2.5">
-                    {(findings as LoopFinding[]).map((f) => (
+                    {shownFindings.map((f) => (
                       <li key={f.id} className="flex items-start gap-2.5">
                         <span
                           aria-hidden
                           className={cn(
                             "mt-[0.3rem] size-2 shrink-0 rounded-full",
-                            f.severity === "alert" ? "bg-destructive" : "bg-muted-foreground/40",
+                            f.severity === "alert" ? "bg-destructive" : f.severity === "watch" ? "bg-warning" : "bg-good",
                           )}
                         />
                         <div className="space-y-0.5">
                           <span className="text-[0.65rem] font-semibold tracking-wider text-muted-foreground uppercase">
-                            {f.severity}
+                            {f.kind === "win" ? "win" : f.severity}
                           </span>
                           <p className="leading-snug font-medium text-foreground">{f.title}</p>
                         </div>

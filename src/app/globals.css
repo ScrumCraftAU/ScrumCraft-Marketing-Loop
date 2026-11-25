@@ -22,6 +22,7 @@
   --color-cta: var(--cta);
   --color-cta-foreground: var(--cta-foreground);
   --color-good: var(--good);
+  --color-warning: var(--warning);
   --color-bad: var(--bad);
   --color-chart-4: var(--chart-4);
   --color-chart-3: var(--chart-3);
@@ -93,6 +94,7 @@
   --cta: var(--brand-cyan);
   --cta-foreground: var(--brand-purple);
   --good: var(--brand-turquoise);
+  --warning: var(--brand-orange);
   --bad: var(--brand-cherry);
   --chart-1: var(--brand-purple);
   --chart-2: var(--brand-turquoise);
