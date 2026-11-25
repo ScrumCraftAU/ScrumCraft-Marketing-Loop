@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { formatDistanceToNow, parseISO, format } from "date-fns";
+import { cn } from "cn";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MetricTile } from "@/components/metric-tile";
@@ -40,7 +41,7 @@ export default async function DashboardPage() {
   ]);
   const lastRun = (runs?.[0] ?? null) as LoopRun | null;
   const { data: findings } = lastRun
-    ? await db().from("loop_findings").select("*").eq("loop_run_id", lastRun.id).neq("severity", "info").limit(5)
+    ? await db().from("loop_findings").select("*").eq("loop_run_id", lastRun.id).neq("severity", "info").order("severity", { ascending: true }).limit(5)
     : { data: [] };
 
   const northStar = stats.metrics.filter((s) => s.metric.is_north_star);
@@ -64,23 +65,42 @@ export default async function DashboardPage() {
               </Link>
             )}
           </CardHeader>
-          <CardContent className="space-y-3 text-sm">
+          <CardContent className="space-y-4 text-sm">
             {lastRun ? (
               <>
-                <p className="text-muted-foreground">
-                  <Badge variant={lastRun.status === "failed" ? "destructive" : "secondary"}>{runStatusLabel(lastRun.status)}</Badge>{" "}
-                  {lastRun.trigger} · {formatDistanceToNow(parseISO(lastRun.started_at), { addSuffix: true })}
-                </p>
-                <p className="whitespace-pre-line">{lastRun.summary ?? lastRun.error ?? "—"}</p>
+                <div className="flex flex-wrap items-center gap-2 text-muted-foreground">
+                  <Badge variant={lastRun.status === "failed" ? "destructive" : "secondary"}>{runStatusLabel(lastRun.status)}</Badge>
+                  <span>
+                    {lastRun.trigger} · {formatDistanceToNow(parseISO(lastRun.started_at), { addSuffix: true })}
+                  </span>
+                </div>
                 {(findings as LoopFinding[] | null)?.length ? (
-                  <ul className="space-y-1">
+                  <ul className="space-y-2.5">
                     {(findings as LoopFinding[]).map((f) => (
-                      <li key={f.id}>
-                        <Badge variant={f.severity === "alert" ? "destructive" : "outline"}>{f.severity}</Badge>{" "}
-                        {f.title}
+                      <li key={f.id} className="flex items-start gap-2.5">
+                        <span
+                          aria-hidden
+                          className={cn(
+                            "mt-[0.3rem] size-2 shrink-0 rounded-full",
+                            f.severity === "alert" ? "bg-destructive" : "bg-muted-foreground/40",
+                          )}
+                        />
+                        <div className="space-y-0.5">
+                          <span className="text-[0.65rem] font-semibold tracking-wider text-muted-foreground uppercase">
+                            {f.severity}
+                          </span>
+                          <p className="leading-snug font-medium text-foreground">{f.title}</p>
+                        </div>
                       </li>
                     ))}
                   </ul>
+                ) : null}
+                {lastRun.summary ? (
+                  <p className="max-w-prose border-t pt-3 leading-relaxed whitespace-pre-line text-muted-foreground">
+                    {lastRun.summary}
+                  </p>
+                ) : lastRun.error ? (
+                  <p className="leading-relaxed text-muted-foreground">{lastRun.error}</p>
                 ) : null}
               </>
             ) : (
