@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { format, parseISO } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { SummaryPoints } from "@/components/summary-points";
 import { NotConfigured } from "@/components/not-configured";
 import { isSupabaseConfigured } from "@/lib/env";
 import { db } from "@/lib/supabase/server";
@@ -43,7 +44,9 @@ export default async function LoopRunPage({ params }: PageProps<"/loop/[id]">) {
 
       <Card>
         <CardHeader><CardTitle>Summary</CardTitle></CardHeader>
-        <CardContent className="whitespace-pre-line text-sm">{r.summary ?? r.error ?? "—"}</CardContent>
+        <CardContent className="text-sm">
+          {r.summary ? <SummaryPoints text={r.summary} /> : <p className="text-muted-foreground">{r.error ?? "—"}</p>}
+        </CardContent>
       </Card>
 
       {PHASES.map((phase) => {

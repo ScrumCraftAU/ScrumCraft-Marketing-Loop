@@ -41,29 +41,39 @@ export const FILL_RATE_HORIZON_DAYS = 180;
 const isYes = (v: string | boolean | null | undefined) => v === true || v === "true";
 
 /**
- * Seats sold / capacity for upcoming public paid courses: a daily snapshot, overall and per course
- * (course:<name> <date>). Capacity is the event's ticket cap if it has one, otherwise the ticket
- * types added up. Free events are left out, they're sign-ups rather than seats. With no upcoming
- * course nothing is stored, because 0% would read as a course that isn't selling.
+ * Course calendar snapshot, two daily signals:
+ *  - ticket_tailor.upcoming_courses: how many published paid public courses are scheduled ahead,
+ *    with NO horizon cap, so the loop sees the whole calendar and not just the near window. Without
+ *    this the fill rate below reads as the entire calendar (it reported "only two public dates" when
+ *    five were scheduled, because the other three start beyond the horizon).
+ *  - ticket_tailor.fill_rate: seats sold / capacity for the courses starting within
+ *    FILL_RATE_HORIZON_DAYS, overall and per course (course:<name> <date>). Capacity is the event's
+ *    ticket cap if it has one, otherwise the ticket types added up. Free events are left out, they're
+ *    sign-ups rather than seats. With no upcoming near-term course no fill rate is stored, because 0%
+ *    would read as a course that isn't selling; the count is still stored (0 = nothing scheduled).
  */
 export function fillRateSnapshot(events: TtEvent[], day: string, nowUnix: number): Observation[] {
   const until = nowUnix + FILL_RATE_HORIZON_DAYS * 86_400;
-  const courses = events.flatMap((e) => {
+  const upcoming = events.flatMap((e) => {
     const start = e.start?.unix ?? 0;
     const types = e.ticket_types ?? [];
-    if (start < nowUnix || start >= until || e.status !== "published" || isYes(e.private) || isYes(e.hidden)) return [];
+    if (start < nowUnix || e.status !== "published" || isYes(e.private) || isYes(e.hidden)) return [];
     if (!types.some((t) => (t.price ?? 0) > 0)) return [];
     const capacity = e.max_tickets_sold_per_occurrence || types.reduce((sum, t) => sum + (t.quantity_total ?? 0), 0);
     if (capacity <= 0) return [];
-    return [{ label: `${(e.name ?? e.id).trim().toLowerCase()} ${e.start?.date ?? ""}`.trim(), capacity, sold: types.reduce((sum, t) => sum + (t.quantity_issued ?? 0), 0) }];
+    return [{ label: `${(e.name ?? e.id).trim().toLowerCase()} ${e.start?.date ?? ""}`.trim(), capacity, sold: types.reduce((sum, t) => sum + (t.quantity_issued ?? 0), 0), start }];
   });
-  if (!courses.length) return [];
-  const metric_key = "ticket_tailor.fill_rate";
-  const total = (key: "sold" | "capacity") => courses.reduce((sum, c) => sum + c[key], 0);
-  return [
-    { metric_key, date: day, dimension: "", value: total("sold") / total("capacity") },
-    ...courses.map((c) => ({ metric_key, date: day, dimension: `course:${c.label}`, value: c.sold / c.capacity })),
-  ];
+  const out: Observation[] = [{ metric_key: "ticket_tailor.upcoming_courses", date: day, dimension: "", value: upcoming.length }];
+  const near = upcoming.filter((c) => c.start < until);
+  if (near.length) {
+    const metric_key = "ticket_tailor.fill_rate";
+    const total = (key: "sold" | "capacity") => near.reduce((sum, c) => sum + c[key], 0);
+    out.push(
+      { metric_key, date: day, dimension: "", value: total("sold") / total("capacity") },
+      ...near.map((c) => ({ metric_key, date: day, dimension: `course:${c.label}`, value: c.sold / c.capacity })),
+    );
+  }
+  return out;
 }
 
 const COUNTED = new Set(["completed", "pending"]);

@@ -59,7 +59,9 @@ export async function pullTicketTailor(dayCount?: number): Promise<{ ok: boolean
         nextEvents = res.links?.next ? `${API}${res.links.next.replace(/^\/v1/, "")}` : null;
       }
       const fill = fillRateSnapshot(events, days[days.length - 1], now);
-      raw.fill_rate = { events: events.length, courses: Math.max(fill.length - 1, 0) };
+      const upcoming = fill.find((o) => o.metric_key === "ticket_tailor.upcoming_courses")?.value ?? 0;
+      const nearCourses = fill.filter((o) => o.metric_key === "ticket_tailor.fill_rate" && o.dimension !== "").length;
+      raw.fill_rate = { events: events.length, upcoming, courses: nearCourses };
       observations.push(...fill);
     } catch (err) {
       warnings.push(`course fill rate: ${err instanceof Error ? err.message : String(err)}`);

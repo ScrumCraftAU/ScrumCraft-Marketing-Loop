@@ -59,7 +59,69 @@ function emailTable(rows: { metric_key: string; dimension: string; value: number
   return [...byEmail.values()].sort((a, b) => b.sent - a.sent);
 }
 
+const AEO_WINDOW = 14;
+const AEO_DIMS = ["", "stream:academy", "stream:consulting", "stream:talent"] as const;
+
+/** AEO visibility per product stream: the latest daily snapshot, the change on ~7 days earlier, and the raw mentions/answers. */
+function aeoByStream(rows: { metric_key: string; dimension: string; date: string; value: number | string }[]) {
+  const series = (dim: string, key: string) => rows.filter((r) => r.dimension === dim && r.metric_key === key).sort((a, b) => a.date.localeCompare(b.date));
+  const latest = (dim: string, key: string) => {
+    const s = series(dim, key);
+    return s.length ? Number(s[s.length - 1].value) : null;
+  };
+  const delta7 = (dim: string, key: string) => {
+    const s = series(dim, key);
+    if (!s.length) return null;
+    const target = subDays(parseISO(s[s.length - 1].date), 7).toISOString().slice(0, 10);
+    const prior = [...s].reverse().find((o) => o.date <= target) ?? s[0];
+    return Number(s[s.length - 1].value) - Number(prior.value);
+  };
+  return AEO_DIMS.map((dim) => ({
+    label: dim === "" ? "Overall" : dim.slice("stream:".length),
+    visibility: latest(dim, "aeo.visibility"),
+    delta: delta7(dim, "aeo.visibility"),
+    mentions: latest(dim, "aeo.mentions"),
+    responses: latest(dim, "aeo.responses"),
+  })).filter((r) => r.visibility !== null);
+}
+
+const asPct = (f: number) => `${Math.round(f * 100)}%`;
+
 const pct = (n: number, d: number) => (d > 0 ? `${Math.round((n / d) * 1000) / 10}%` : "—");
+
+const aud = (n: number) => `$${Math.round(n).toLocaleString("en-AU")}`;
+
+const DEAL_WINDOW = 90;
+const ANNUAL_GOAL = 1_200_000; // $1.2m a year ($100k a month), the marketing.revenue goal
+const COVERAGE_TARGET = 3; // open pipeline ÷ goal; mirrors hubspot.pipeline_coverage (SCM-358)
+
+/**
+ * Deal-pipeline health for the tile: win rate over the last DEAL_WINDOW days (deals are lumpy, so a
+ * 90-day view, not the weekly one), and the latest open-pipeline snapshot against the $1.2m goal.
+ */
+function dealPipelineHealth(
+  dealRows: { metric_key: string; value: number | string }[],
+  snapRows: { metric_key: string; date: string; value: number | string }[],
+) {
+  const sumWindow = (key: string) => dealRows.filter((r) => r.metric_key === key).reduce((a, r) => a + Number(r.value), 0);
+  const won = sumWindow("hubspot.deals_won");
+  const lost = sumWindow("hubspot.deals_lost");
+  const closed = won + lost;
+  const latest = (key: string) => {
+    const s = snapRows.filter((r) => r.metric_key === key).sort((a, b) => a.date.localeCompare(b.date));
+    return s.length ? Number(s[s.length - 1].value) : null;
+  };
+  const openValue = latest("hubspot.open_pipeline_value");
+  return {
+    won,
+    closed,
+    winRate: closed > 0 ? won / closed : null,
+    openDeals: latest("hubspot.open_deals"),
+    openValue,
+    weightedValue: latest("hubspot.weighted_pipeline_value"),
+    coverage: openValue === null ? null : openValue / ANNUAL_GOAL,
+  };
+}
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300; // "Pull now" and the year-long HubSpot backfill run on this route
@@ -75,7 +137,10 @@ export default async function MetricsPage() {
 
   const weekAgo = subDays(new Date(), CAMPAIGN_DAYS).toISOString().slice(0, 10);
   const emailFrom = subDays(new Date(), EMAIL_DAYS).toISOString().slice(0, 10);
-  const [{ data: sources }, { data: metrics }, { data: docs }, { data: freshness }, { data: firstHubSpot }, { data: campaignRows }, { data: emailRows }] = await Promise.all([
+  const aeoFrom = subDays(new Date(), AEO_WINDOW).toISOString().slice(0, 10);
+  const dealFrom = subDays(new Date(), DEAL_WINDOW).toISOString().slice(0, 10);
+  const snapFrom = subDays(new Date(), 14).toISOString().slice(0, 10);
+  const [{ data: sources }, { data: metrics }, { data: docs }, { data: freshness }, { data: firstHubSpot }, { data: campaignRows }, { data: emailRows }, { data: aeoRowsData }, { data: sovRow }, { data: dealRowsData }, { data: snapRowsData }] = await Promise.all([
     db().from("sources").select("*").order("id"),
     db().from("metrics").select("*").order("sort_order"),
     db().from("strategy_docs").select("*").order("sort_order"),
@@ -95,9 +160,34 @@ export default async function MetricsPage() {
       .like("dimension", "email:%")
       .gte("date", emailFrom)
       .limit(5000),
+    db()
+      .from("metric_observations")
+      .select("metric_key, dimension, date, value")
+      .in("metric_key", ["aeo.visibility", "aeo.mentions", "aeo.responses"])
+      .in("dimension", ["", "stream:academy", "stream:consulting", "stream:talent"])
+      .gte("date", aeoFrom)
+      .limit(5000),
+    db().from("metric_observations").select("date, value").eq("metric_key", "aeo.share_of_voice").eq("dimension", "").order("date", { ascending: false }).limit(1),
+    db()
+      .from("metric_observations")
+      .select("metric_key, value")
+      .in("metric_key", ["hubspot.deals_won", "hubspot.deals_lost"])
+      .eq("dimension", "")
+      .gte("date", dealFrom)
+      .limit(5000),
+    db()
+      .from("metric_observations")
+      .select("metric_key, date, value")
+      .in("metric_key", ["hubspot.open_pipeline_value", "hubspot.weighted_pipeline_value", "hubspot.open_deals"])
+      .eq("dimension", "")
+      .gte("date", snapFrom)
+      .limit(5000),
   ]);
   const campaigns = topCampaigns(campaignRows ?? []);
   const emails = emailTable(emailRows ?? []);
+  const aeo = aeoByStream(aeoRowsData ?? []);
+  const overallSov = sovRow?.[0] ? Number(sovRow[0].value) : null;
+  const pipeline = dealPipelineHealth(dealRowsData ?? [], snapRowsData ?? []);
   const latest = new Map((freshness ?? []).map((f) => [f.metric_key as string, f.latest_date as string]));
   const today = new Date().toISOString().slice(0, 10);
   // Offer the one-off HubSpot backfill until about a year of history is stored.
@@ -169,6 +259,75 @@ export default async function MetricsPage() {
             </Table>
           </div>
         )}
+      </section>
+
+      <section className="space-y-2">
+        <div>
+          <h2 className="text-lg font-bold">AI answer visibility (AEO)</h2>
+          <p className="text-sm text-muted-foreground">
+            How often AI assistants name ScrumCraft in their answers, by product stream, from the daily snapshot of the Brand knowledge prompts. The latest value and the change on a week earlier. A leading indicator (SCM-298).
+          </p>
+        </div>
+        {aeo.length === 0 ? (
+          <p className="rounded-lg border p-3 text-sm text-muted-foreground">No AEO snapshots yet.</p>
+        ) : (
+          <>
+            <div className="overflow-x-auto rounded-lg border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Stream</TableHead>
+                    <TableHead className="text-right">AI visibility</TableHead>
+                    <TableHead className="text-right">7-day change</TableHead>
+                    <TableHead className="text-right">Answers mentioning us</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {aeo.map((r) => (
+                    <TableRow key={r.label}>
+                      <TableCell className="font-medium capitalize">{r.label}</TableCell>
+                      <TableCell className="text-right">{asPct(r.visibility!)}</TableCell>
+                      <TableCell className="text-right">{r.delta === null ? "—" : `${r.delta >= 0 ? "+" : ""}${Math.round(r.delta * 100)} pts`}</TableCell>
+                      <TableCell className="text-right">{r.mentions ?? 0} of {r.responses ?? 0}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+            {overallSov !== null && (
+              <p className="text-xs text-muted-foreground">Overall share of voice {asPct(overallSov)} — our mentions as a share of all brands named across the answers checked.</p>
+            )}
+          </>
+        )}
+      </section>
+
+      <section className="space-y-2">
+        <div>
+          <h2 className="text-lg font-bold">Deal pipeline health</h2>
+          <p className="text-sm text-muted-foreground">
+            Win rate over the last {DEAL_WINDOW} days and the current open pipeline against the $1.2m a year goal. Deals are lumpy, so this reads the 90-day view, not one week (SCM-358).
+          </p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div className="rounded-lg border p-3">
+            <p className="text-sm text-muted-foreground">Win rate (last {DEAL_WINDOW} days)</p>
+            <p className="text-2xl font-black text-primary">{pipeline.winRate === null ? "—" : asPct(pipeline.winRate)}</p>
+            <p className="text-xs text-muted-foreground">{pipeline.won} won of {pipeline.closed} closed</p>
+          </div>
+          <div className="rounded-lg border p-3">
+            <p className="text-sm text-muted-foreground">Open pipeline</p>
+            <p className="text-2xl font-black text-primary">{pipeline.openValue === null ? "—" : aud(pipeline.openValue)}</p>
+            <p className="text-xs text-muted-foreground">{pipeline.openDeals ?? 0} deals · {pipeline.weightedValue === null ? "—" : `${aud(pipeline.weightedValue)} weighted`}</p>
+          </div>
+          <div className="rounded-lg border p-3">
+            <p className="text-sm text-muted-foreground">Pipeline coverage</p>
+            <p className="text-2xl font-black text-primary">{pipeline.coverage === null ? "—" : `${(Math.round(pipeline.coverage * 10) / 10).toFixed(1)}x`}</p>
+            <p className="text-xs text-muted-foreground">of the $1.2m goal · target {COVERAGE_TARGET}x</p>
+          </div>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Win rate is indicative: many lost deals are not logged in HubSpot, so the true rate is likely lower. The coverage denominator (the $1.2m annual goal) is a starting point for Operations to confirm.
+        </p>
       </section>
 
       <section className="space-y-2">
