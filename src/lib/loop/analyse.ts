@@ -42,6 +42,8 @@ ticket_tailor.upcoming_courses is the full count of scheduled public courses, so
 the whole calendar.
 When strategy documents are provided, ground findings and experiments in them: name the product,
 persona or campaign theme an experiment serves, and keep any proposed copy in the brand voice.
+Write summary as 3 to 5 short standalone points separated by newlines, most important first — the
+week's story at a glance, each one scannable sentence, not one dense paragraph and no bullet characters.
 Be specific and brief; this is read by a small marketing team over coffee.`;
 
 const Finding = z.object({
