@@ -97,7 +97,7 @@ export default async function DashboardPage() {
                           aria-hidden
                           className={cn(
                             "mt-[0.3rem] size-2 shrink-0 rounded-full",
-                            f.severity === "alert" ? "bg-destructive" : f.severity === "watch" ? "bg-warning" : "bg-good",
+                            f.severity === "alert" ? "bg-destructive" : f.severity === "watch" ? "bg-muted-foreground/40" : "bg-good",
                           )}
                         />
                         <div className="space-y-0.5">
