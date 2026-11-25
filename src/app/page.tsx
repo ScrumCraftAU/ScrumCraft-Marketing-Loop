@@ -4,6 +4,7 @@ import { cn } from "cn";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MetricTile } from "@/components/metric-tile";
+import { SummaryPoints } from "@/components/summary-points";
 import { NotConfigured } from "@/components/not-configured";
 import { RunLoopButton } from "@/components/run-loop-button";
 import { isSupabaseConfigured } from "@/lib/env";
@@ -106,9 +107,7 @@ export default async function DashboardPage() {
                   </ul>
                 ) : null}
                 {lastRun.summary ? (
-                  <p className="max-w-prose border-t pt-3 leading-relaxed whitespace-pre-line text-muted-foreground">
-                    {lastRun.summary}
-                  </p>
+                  <SummaryPoints text={lastRun.summary} className="max-w-prose border-t pt-3 text-muted-foreground" />
                 ) : lastRun.error ? (
                   <p className="leading-relaxed text-muted-foreground">{lastRun.error}</p>
                 ) : null}
