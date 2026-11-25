@@ -46,6 +46,7 @@ loop_runs ──< loop_findings ──> experiments
 | `loop_findings` | Check/Act output: anomaly, trend, target gap, win, risk, experiment result, recommendation (severity info/watch/alert) |
 | `experiments` | The PDCA board: hypothesis, action, target metric, baseline, expected change, check date, status, result |
 | `strategy_docs` | Confluence pages (marketing strategy, SCA product marketing strategies, brand guide) the loop reads as context. Refreshed from the Metrics & sources page. |
+| `deal_delivery_profiles` | Per-deal delivery shape (one-off vs monthly, term, start) for the duration-aware delivered-revenue spread; HubSpot `amount` is total contract value with no duration field and the connector can't create one |
 
 Derived metrics (`paid.spend`, `paid.cost_per_booking`, `paid.roas`, …) are **not stored**. They're computed per window as a ratio of sums, which avoids averaging daily ratios.
 
@@ -105,6 +106,8 @@ Derived metrics (`paid.spend`, `paid.cost_per_booking`, `paid.roas`, …) are **
 | Revenue | Cost per lead | `paid.cost_per_lead` | derived |
 | Revenue | Cost per booking | `paid.cost_per_booking` | derived |
 | Revenue | ROAS | `paid.roas` | derived |
+
+**Delivered revenue** (`hubspot.delivered_revenue`, SCM-326, leading/revenue): the *relative* leading indicator for the $100k-a-month goal. `marketing.revenue` books each deal's full contract value in its close month (lumpy); this spreads won (last 12 months) + probability-weighted open deals across the months each is delivered. `month:YYYY-MM` holds the forward projection; `''` is this calendar month against the $100k target, shown on the dashboard mission card. Delivery shape per deal lives in `deal_delivery_profiles`; unmapped deals default to one-off in the close month.
 
 Retired: `seo.keywords_top10` and `seo.avg_position` (Semrush, replaced by `gsc.*` on 13 Oct 2026; Semrush is kept for research only).
 
