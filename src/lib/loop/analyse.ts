@@ -37,6 +37,9 @@ back data actually goes, often less than 90 days); "latest" is a daily snapshot 
 where revenue, pipeline and enrolments come from and which channels or courses to invest in. Deals are
 lumpy: judge sources on the 90-day view, not one week. Many lost deals are not recorded in HubSpot, so treat
 win rate as overstated.
+ticket_tailor.fill_rate and its course breakdown only cover public courses starting within the next 180 days;
+ticket_tailor.upcoming_courses is the full count of scheduled public courses, so never read the fill window as
+the whole calendar.
 When strategy documents are provided, ground findings and experiments in them: name the product,
 persona or campaign theme an experiment serves, and keep any proposed copy in the brand voice.
 Be specific and brief; this is read by a small marketing team over coffee.`;
