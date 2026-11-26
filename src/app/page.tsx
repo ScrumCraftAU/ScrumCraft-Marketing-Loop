@@ -11,6 +11,7 @@ import { RunLoopButton } from "@/components/run-loop-button";
 import { isSupabaseConfigured } from "@/lib/env";
 import { computeStats } from "@/lib/metrics/stats";
 import { getDeliveredForecast } from "@/lib/metrics/delivered";
+import { getMonthToDate } from "@/lib/metrics/month-to-date";
 import { computeSiteStats } from "@/lib/metrics/sites";
 import { SiteTable } from "@/components/site-table";
 import { db } from "@/lib/supabase/server";
@@ -50,6 +51,20 @@ export default async function DashboardPage() {
 
   const northStar = stats.metrics.filter((s) => s.metric.is_north_star);
 
+  // Month-to-date progress for north-star sum metrics with a monthly target (e.g. marketing revenue vs $30k).
+  const monthTargets: Record<string, { value: number | null; target: number }> = {};
+  if (stats.asOf) {
+    const asOf = stats.asOf;
+    const monthStart = `${asOf.slice(0, 7)}-01`;
+    await Promise.all(
+      northStar
+        .filter((s) => s.metric.target_period === "month" && s.metric.aggregation === "sum" && s.metric.target_value)
+        .map(async (s) => {
+          monthTargets[s.metric.key] = { value: await getMonthToDate(s.metric.key, monthStart, asOf), target: s.metric.target_value as number };
+        }),
+    );
+  }
+
   // Lead with the key points: alerts, then watches, then wins — a few of each so the card stays scannable.
   const SEVERITY_RANK: Record<string, number> = { alert: 0, watch: 1, info: 2 };
   const SEVERITY_CAP: Record<string, number> = { alert: 3, watch: 3, info: 2 };
@@ -67,7 +82,7 @@ export default async function DashboardPage() {
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="grid gap-4">
           {northStar.map((s) => (
-            <MetricTile key={s.metric.key} stats={s} emphasis />
+            <MetricTile key={s.metric.key} stats={s} emphasis monthTarget={monthTargets[s.metric.key]} />
           ))}
           <DeliveredRevenueCard forecast={deliveredForecast} />
         </div>
