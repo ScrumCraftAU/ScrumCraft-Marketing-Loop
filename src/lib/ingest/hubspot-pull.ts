@@ -207,6 +207,11 @@ export async function pullHubSpot(dayCount?: number): Promise<{ ok: boolean; sto
     observations.push(...pipelineSnapshot(open, days[days.length - 1]));
     raw.open_deals = open.length;
 
+    // Marketing contacts against the 2,000 Marketing Hub tier (SCM-288). Snapshot on the latest day.
+    const marketingContacts = await countOnly("contacts", [{ propertyName: "hs_marketable_status", operator: "EQ", value: "true" }]);
+    observations.push({ metric_key: "hubspot.marketing_contacts", date: days[days.length - 1], dimension: "", value: marketingContacts });
+    raw.marketing_contacts = marketingContacts;
+
     // Delivered-revenue projection (SCM-326): spread won (last 12 months) + probability-weighted open
     // deals over their delivery months, so the monthly view reflects revenue landing each month rather
     // than the full contract value booked at close. Snapshot on the latest pulled day (aggregation last).
