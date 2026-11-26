@@ -1,12 +1,17 @@
 import Link from "next/link";
 import { formatDistanceToNow, parseISO, format } from "date-fns";
+import { cn } from "cn";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MetricTile } from "@/components/metric-tile";
+import { DeliveredRevenueCard } from "@/components/delivered-revenue-card";
+import { SummaryPoints } from "@/components/summary-points";
 import { NotConfigured } from "@/components/not-configured";
 import { RunLoopButton } from "@/components/run-loop-button";
 import { isSupabaseConfigured } from "@/lib/env";
 import { computeStats } from "@/lib/metrics/stats";
+import { getDeliveredForecast } from "@/lib/metrics/delivered";
+import { getMonthToDate } from "@/lib/metrics/month-to-date";
 import { computeSiteStats } from "@/lib/metrics/sites";
 import { SiteTable } from "@/components/site-table";
 import { db } from "@/lib/supabase/server";
@@ -33,17 +38,42 @@ export default async function DashboardPage() {
     );
   }
 
-  const [stats, sites, { data: runs }] = await Promise.all([
+  const [stats, sites, { data: runs }, deliveredForecast] = await Promise.all([
     computeStats(),
     computeSiteStats(),
     db().from("loop_runs").select("*").order("started_at", { ascending: false }).limit(1),
+    getDeliveredForecast(),
   ]);
   const lastRun = (runs?.[0] ?? null) as LoopRun | null;
   const { data: findings } = lastRun
-    ? await db().from("loop_findings").select("*").eq("loop_run_id", lastRun.id).neq("severity", "info").limit(5)
+    ? await db().from("loop_findings").select("*").eq("loop_run_id", lastRun.id).limit(50)
     : { data: [] };
 
   const northStar = stats.metrics.filter((s) => s.metric.is_north_star);
+
+  // Month-to-date progress for north-star sum metrics with a monthly target (e.g. marketing revenue vs $30k).
+  const monthTargets: Record<string, { value: number | null; target: number }> = {};
+  if (stats.asOf) {
+    const asOf = stats.asOf;
+    const monthStart = `${asOf.slice(0, 7)}-01`;
+    await Promise.all(
+      northStar
+        .filter((s) => s.metric.target_period === "month" && s.metric.aggregation === "sum" && s.metric.target_value)
+        .map(async (s) => {
+          monthTargets[s.metric.key] = { value: await getMonthToDate(s.metric.key, monthStart, asOf), target: s.metric.target_value as number };
+        }),
+    );
+  }
+
+  // Lead with the key points: alerts, then watches, then wins — a few of each so the card stays scannable.
+  const SEVERITY_RANK: Record<string, number> = { alert: 0, watch: 1, info: 2 };
+  const SEVERITY_CAP: Record<string, number> = { alert: 3, watch: 3, info: 2 };
+  const shownFindings = (() => {
+    const seen: Record<string, number> = {};
+    return [...((findings as LoopFinding[] | null) ?? [])]
+      .sort((a, b) => (SEVERITY_RANK[a.severity] ?? 9) - (SEVERITY_RANK[b.severity] ?? 9))
+      .filter((f) => (seen[f.severity] = (seen[f.severity] ?? 0) + 1) <= (SEVERITY_CAP[f.severity] ?? 0));
+  })();
 
   return (
     <div className="space-y-8">
@@ -52,8 +82,9 @@ export default async function DashboardPage() {
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="grid gap-4">
           {northStar.map((s) => (
-            <MetricTile key={s.metric.key} stats={s} emphasis />
+            <MetricTile key={s.metric.key} stats={s} emphasis monthTarget={monthTargets[s.metric.key]} />
           ))}
+          <DeliveredRevenueCard forecast={deliveredForecast} />
         </div>
         <Card className="lg:col-span-2">
           <CardHeader className="flex flex-row items-center justify-between gap-2">
@@ -64,23 +95,40 @@ export default async function DashboardPage() {
               </Link>
             )}
           </CardHeader>
-          <CardContent className="space-y-3 text-sm">
+          <CardContent className="space-y-4 text-sm">
             {lastRun ? (
               <>
-                <p className="text-muted-foreground">
-                  <Badge variant={lastRun.status === "failed" ? "destructive" : "secondary"}>{runStatusLabel(lastRun.status)}</Badge>{" "}
-                  {lastRun.trigger} · {formatDistanceToNow(parseISO(lastRun.started_at), { addSuffix: true })}
-                </p>
-                <p className="whitespace-pre-line">{lastRun.summary ?? lastRun.error ?? "—"}</p>
-                {(findings as LoopFinding[] | null)?.length ? (
-                  <ul className="space-y-1">
-                    {(findings as LoopFinding[]).map((f) => (
-                      <li key={f.id}>
-                        <Badge variant={f.severity === "alert" ? "destructive" : "outline"}>{f.severity}</Badge>{" "}
-                        {f.title}
+                <div className="flex flex-wrap items-center gap-2 text-muted-foreground">
+                  <Badge variant={lastRun.status === "failed" ? "destructive" : "secondary"}>{runStatusLabel(lastRun.status)}</Badge>
+                  <span>
+                    {lastRun.trigger} · {formatDistanceToNow(parseISO(lastRun.started_at), { addSuffix: true })}
+                  </span>
+                </div>
+                {shownFindings.length ? (
+                  <ul className="space-y-2.5">
+                    {shownFindings.map((f) => (
+                      <li key={f.id} className="flex items-start gap-2.5">
+                        <span
+                          aria-hidden
+                          className={cn(
+                            "mt-[0.3rem] size-2 shrink-0 rounded-full",
+                            f.severity === "alert" ? "bg-destructive" : f.severity === "watch" ? "bg-muted-foreground/40" : "bg-good",
+                          )}
+                        />
+                        <div className="space-y-0.5">
+                          <span className="text-[0.65rem] font-semibold tracking-wider text-muted-foreground uppercase">
+                            {f.kind === "win" ? "win" : f.severity}
+                          </span>
+                          <p className="leading-snug font-medium text-foreground">{f.title}</p>
+                        </div>
                       </li>
                     ))}
                   </ul>
+                ) : null}
+                {lastRun.summary ? (
+                  <SummaryPoints text={lastRun.summary} className="max-w-prose border-t pt-3 text-muted-foreground" />
+                ) : lastRun.error ? (
+                  <p className="leading-relaxed text-muted-foreground">{lastRun.error}</p>
                 ) : null}
               </>
             ) : (

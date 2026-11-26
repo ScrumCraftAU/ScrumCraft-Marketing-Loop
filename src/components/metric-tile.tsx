@@ -6,8 +6,18 @@ import type { MetricStats } from "@/lib/metrics/stats";
 import { cn } from "@/lib/utils";
 
 /** Stat tile: this week's value, change vs 4-week average (good/bad by metric direction), sparkline. */
-export function MetricTile({ stats, emphasis = false }: { stats: MetricStats; emphasis?: boolean }) {
+export function MetricTile({
+  stats,
+  emphasis = false,
+  monthTarget,
+}: {
+  stats: MetricStats;
+  emphasis?: boolean;
+  monthTarget?: { value: number | null; target: number };
+}) {
   const { metric, current, changeVsBaseline, signal, dataDays } = stats;
+  const monthPct = monthTarget && monthTarget.value !== null && monthTarget.target ? monthTarget.value / monthTarget.target : null;
+  const monthOnTrack = monthPct !== null && monthPct >= 0.9;
   const Arrow =
     changeVsBaseline === null || Math.abs(changeVsBaseline) < 0.005
       ? Minus
@@ -32,7 +42,7 @@ export function MetricTile({ stats, emphasis = false }: { stats: MetricStats; em
             <p className={cn("font-bold tabular-nums", emphasis ? "text-3xl" : "text-2xl")}>
               {formatValue(current, metric.unit)}
             </p>
-            {metric.target_value != null && (
+            {metric.target_value != null && !monthTarget && (
               <p className="mt-0.5 text-[11px] leading-tight text-muted-foreground tabular-nums">
                 {metric.direction === "down_good" ? "limit" : "target"} {formatValue(metric.target_value, metric.unit)}
                 {metric.target_period ? ` / ${metric.target_period}` : ""}
@@ -54,6 +64,20 @@ export function MetricTile({ stats, emphasis = false }: { stats: MetricStats; em
           </div>
           <Sparkline series={stats.series} unit={metric.unit} label={metric.name} />
         </div>
+        {monthTarget && (
+          <div className="flex flex-col gap-1">
+            <div className="h-1.5 w-full overflow-hidden rounded bg-muted" aria-hidden>
+              <div
+                className={cn("h-full rounded", monthOnTrack ? "bg-good" : "bg-bad")}
+                style={{ width: `${monthPct === null ? 0 : Math.min(100, Math.max(0, monthPct * 100))}%` }}
+              />
+            </div>
+            <p className="text-xs tabular-nums text-muted-foreground">
+              {formatValue(monthTarget.value, metric.unit)} of {formatValue(monthTarget.target, metric.unit)} this month
+              {monthPct !== null ? ` · ${Math.round(monthPct * 100)}%` : ""}
+            </p>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

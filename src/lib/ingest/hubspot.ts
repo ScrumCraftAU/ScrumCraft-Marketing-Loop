@@ -66,6 +66,28 @@ export function countByDayAndDimension(records: { properties: Record<string, str
   return [...counts.values()];
 }
 
+/**
+ * The course an Academy enrolment is for. HubSpot's LearnWorlds sync sometimes leaves Last Course
+ * Booked (`last_course_booked`) empty and fills only Academy Courses (`academy_courses`, a
+ * semicolon-separated list). Fall back to the most recent course in that list, the last entry, which
+ * is the order the sync appends them, so paid-course enrolments aren't hidden as "unknown" (SCM-252).
+ * Returns null when neither is set.
+ */
+export function enrolmentCourse(props: Record<string, string | null | undefined>): string | null {
+  const booked = props.last_course_booked?.trim();
+  if (booked) return booked;
+  const courses = (props.academy_courses ?? "").split(";").map((c) => c.trim()).filter(Boolean);
+  return courses.length ? courses[courses.length - 1] : null;
+}
+
+/**
+ * Copies each enrolment with `last_course_booked` resolved through enrolmentCourse, so the per-course
+ * count reads one property and the daily total (countByDay) is left untouched.
+ */
+export function withResolvedCourse<T extends { properties: Record<string, string | null | undefined> }>(records: T[]): T[] {
+  return records.map((r) => ({ ...r, properties: { ...r.properties, last_course_booked: enrolmentCourse(r.properties) } }));
+}
+
 /** Like countByDayAndDimension, but sums a numeric property (for example won revenue by deal source). */
 export function sumByDayAndDimension(records: { properties: Record<string, string | null | undefined> }[], dateProp: string, valueProp: string, dimProp: string, days: string[], metric_key: string, prefix: string): Observation[] {
   const wanted = new Set(days);
