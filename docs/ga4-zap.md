@@ -28,7 +28,7 @@ it can get past SSO. You'll also need the `INGEST_SECRET` value.
 |---|---|---|
 | 552676870 | scrumcraft.com (main: the dashboard totals; stream G-CJDDMN02SK) | ScrumCraft |
 | 552649204 | Ticket Tailor event pages | ScrumCraft |
-| 552638790 | ScrumCraft Academy (scrumcraftacademy.com) | ScrumCraft Academy |
+| 552638790 | ScrumCraft Academy (scrumcraftacademy.com; live stream **G-Z84KB1STQ9** since 27 Nov 2026, SCM-381) | ScrumCraft Academy |
 | 538155047 | thinkwithclarity.com.au | Clarity |
 | 552652741 | remarkabletalent.com.au | Remarkable Talent |
 
@@ -38,8 +38,11 @@ Retired (do not send; the app answers 410). All three were renamed "[Retired] â€
 - 552648392 (scrumcraftacademy.com.au, 301-redirects to .com). **In the GA4 Trash since 27 Oct 2026**, recoverable
   until 1 Dec 2026.
 - 497876700 (Academy on LearnWorlds; its pre-3-Sep-2026 history was copied into 552638790, see migration 0004). Its
-  stream ID G-FFN95XZ5ZN is still the Google tag loaded on scrumcraftacademy.com, which forwards to G-2S585801JR
-  (552638790). Don't trash it until GTM-WSQ7TV4Q loads G-2S585801JR directly (SCM-247).
+  stream G-FFN95XZ5ZN was the old on-page Google tag that forwarded to the former Academy stream G-2S585801JR.
+  **Obsolete since 27 Nov 2026 (SCM-381):** scrumcraftacademy.com now loads its own live stream **G-Z84KB1STQ9**
+  (property 552638790) via the LearnWorlds native GA4 integration, so G-FFN95XZ5ZN no longer feeds the live property
+  and can be cleaned up with the other retired tags. The old SCM-247 "wait until GTM-WSQ7TV4Q loads G-2S585801JR
+  directly" condition no longer applies.
 
 To add or remove a property, update `sources.config` for `ga4` in Supabase **and** this list.
 
